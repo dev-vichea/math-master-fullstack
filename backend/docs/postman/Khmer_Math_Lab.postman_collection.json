@@ -1,0 +1,388 @@
+{
+  "info": {
+    "_postman_id": "c7a8b410-d805-4f32-8b83-khmermathlab01",
+    "name": "Khmer Math Lab API",
+    "description": "Comprehensive Postman collection for Khmer Math Lab backend: Khmer & English math solving, SymPy deterministic step generator, Pix2Tex single-formula OCR, and Kiri full-worksheet document pipeline.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Math Solvers (Text & Khmer)",
+      "description": "Endpoints to parse and solve math problems written in Khmer or English with step-by-step verified explanations.",
+      "item": [
+        {
+          "name": "Solve - Linear Equation (English)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"2x + 5 = 15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/solve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "solve"]
+            },
+            "description": "Solves a linear equation and returns verified step-by-step solution."
+          }
+        },
+        {
+          "name": "Solve - Quadratic Equation (Khmer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"ដោះស្រាយសមីការ x^2 - 5x + 6 = 0\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/solve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "solve"]
+            },
+            "description": "Recognizes Khmer instruction 'ដោះស្រាយសមីការ' (Solve equation) and solves quadratic formula with delta."
+          }
+        },
+        {
+          "name": "Solve - Limit with Rationalization (BacII)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"lim_{x -> 2} 4*(sqrt(x+2) - 2)/(4 - x^2)\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/solve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "solve"]
+            },
+            "description": "Evaluates indeterminate limit form [0/0] via conjugate rationalization steps."
+          }
+        },
+        {
+          "name": "Solve - System of Equations (Khmer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"ដោះស្រាយប្រព័ន្ធសមីការ 2x + y = 7 និង x - y = 2\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/solve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "solve"]
+            },
+            "description": "Solves 2x2 linear system with substitution or elimination steps."
+          }
+        },
+        {
+          "name": "Parse Math Expression (Preview Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"គណនា 2x + 3 = 7\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/parse",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "parse"]
+            },
+            "description": "Returns detected Khmer intent, problem type, and normalized expression without running the full solver."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Vision OCR (Single Formula)",
+      "description": "End-to-end OCR and solver for single cropped or printed formulas using Pix2Tex LaTeX OCR engine.",
+      "item": [
+        {
+          "name": "Vision - Single Formula OCR & Solve",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "training/test_exercises/handwrite.jpg",
+                  "description": "Select an image file containing a single mathematical formula."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/vision",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "vision"]
+            },
+            "description": "Upload a single cropped formula image. Pix2Tex extracts LaTeX and feeds it into the solver."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Full Worksheets (Document OCR & Auto-Solve)",
+      "description": "Process complete worksheet documents: extracts instructions, shared context, multiple sub-problems, and solves each automatically.",
+      "item": [
+        {
+          "name": "Worksheets - Process Full Worksheet Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "training/test_exercises/handwrite.jpg",
+                  "description": "Select a full worksheet image file (PNG/JPEG)."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/worksheets/process",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "worksheets", "process"]
+            },
+            "description": "Upload full worksheet. The document pipeline extracts sections, detects instructions, and solves all problems."
+          }
+        },
+        {
+          "name": "Worksheets - Get Worksheet Statistics",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "Upload worksheet to inspect problem counts, label sequences, and layout statistics."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/worksheets/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "worksheets", "statistics"]
+            },
+            "description": "Returns problem count, section count, and label distribution from worksheet."
+          }
+        },
+        {
+          "name": "Worksheets - Validate Worksheet Structure",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "Validate structure without executing full problem solving."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/worksheets/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "worksheets", "validate"]
+            },
+            "description": "Validates whether the detected layout and exercise hierarchy is logically sound."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Exercises Pipeline (Text Analysis)",
+      "description": "Direct text-based exercise and instruction parsing pipeline.",
+      "item": [
+        {
+          "name": "Exercises - Analyze Text Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"លំហាត់ទី១៖ ចូរគណនាកន្សោមខាងក្រោម\\nក. A = 2x + 5 នៅពេល x = 3\\nខ. B = x^2 - 4 នៅពេល x = -2\",\n  \"language\": \"km\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "analyze"]
+            },
+            "description": "Analyzes raw text containing Khmer instructions and sub-problems."
+          }
+        },
+        {
+          "name": "Exercises - Validate Exercise Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"ដោះស្រាយសមីការ:\\n1) 2x + 1 = 5\\n2) 3x - 2 = 7\",\n  \"language\": \"km\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "validate"]
+            },
+            "description": "Checks numbering sequence and syntax structure."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - History & Management",
+      "description": "Inspect and manage past solved problem logs stored in SQLite database.",
+      "item": [
+        {
+          "name": "History - List Past Solved Problems",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/history?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "problem_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns paginated list of previously solved problems with verification flags."
+          }
+        },
+        {
+          "name": "History - Aggregate Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/history/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "history", "stats"]
+            },
+            "description": "Returns counts of solved problems grouped by problem type."
+          }
+        },
+        {
+          "name": "History - Clear All Entries",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/math/history",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "math", "history"]
+            },
+            "description": "Deletes all stored history records."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - System Health & OpenAPI",
+      "description": "System operational check and OpenAPI schema endpoint.",
+      "item": [
+        {
+          "name": "System - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health"]
+            },
+            "description": "Returns API online status and application version."
+          }
+        },
+        {
+          "name": "System - OpenAPI Spec (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/openapi.json",
+              "host": ["{{base_url}}"],
+              "path": ["openapi.json"]
+            },
+            "description": "Raw OpenAPI 3.1 schema specification for Khmer Math Lab API."
+          }
+        }
+      ]
+    }
+  ]
+}

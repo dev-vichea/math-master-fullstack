@@ -1,0 +1,4 @@
+# Only needed for training/generate_synthetic_data.py, which runs locally
+# on your Mac. This is intentionally separate from the main requirements.txt
+# — your API server never needs these.
+pillow>=10.0

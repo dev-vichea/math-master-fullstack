@@ -1,0 +1,131 @@
+:root, [data-theme="light"] {
+  --font-family-khmer: 'Kantumruy Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-heading: 'Outfit', 'Kantumruy Pro', sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+
+  /* Color Palette - Light Mode (Default) */
+  --color-bg-base: #f8fafc;
+  --color-bg-mesh: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%),
+                    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+  
+  --color-surface-glass: rgba(255, 255, 255, 0.88);
+  --color-surface-card: #ffffff;
+  --color-surface-elevated: #f1f5f9;
+  --color-surface-hover: #e2e8f0;
+  
+  --color-border: #e2e8f0;
+  --color-border-glow: rgba(99, 102, 241, 0.3);
+  --color-border-hover: #cbd5e1;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+
+  /* Brand Accents */
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+  
+  --cyan: #0891b2;
+  --cyan-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  
+  --emerald: #059669;
+  --emerald-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  
+  --amber: #d97706;
+  --rose: #e11d48;
+
+  /* Geometry & Shadows */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--color-border);
+  --shadow-glow: 0 4px 20px rgba(99, 102, 241, 0.15);
+  --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] {
+  /* Color Palette - Dark Mode */
+  --color-bg-base: #090d16;
+  --color-bg-mesh: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+                    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+  
+  --color-surface-glass: rgba(18, 25, 38, 0.75);
+  --color-surface-card: rgba(22, 32, 50, 0.85);
+  --color-surface-elevated: #162032;
+  --color-surface-hover: #1e2c44;
+  
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-glow: rgba(99, 102, 241, 0.4);
+  --color-border-hover: rgba(255, 255, 255, 0.18);
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  --cyan: #06b6d4;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+
+  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--color-border);
+  --shadow-glow: 0 0 25px -5px rgba(99, 102, 241, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-khmer);
+  background-color: var(--color-bg-base);
+  background-image: var(--color-bg-mesh);
+  background-attachment: fixed;
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* KaTeX custom sizing and styling */
+.katex-wrapper {
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.katex-block {
+  display: block;
+  text-align: center;
+  margin: 8px 0;
+  overflow-x: auto;
+  padding: 6px 0;
+}
+
+.katex {
+  font-size: 1.15em !important;
+  text-rendering: geometricPrecision;
+  color: inherit;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

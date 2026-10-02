@@ -1,0 +1,27 @@
+# AI Training Dependencies for Khmer Math Lab
+# Install with: pip install -r training_requirements.txt
+
+# Core ML frameworks
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.14.0
+kiri-ocr>=0.2.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Visualization & Tracking
+matplotlib>=3.7.0
+seaborn>=0.12.0
+tensorboard>=2.13.0
+
+# Optional: Advanced tools
+# wandb>=0.15.0              # Weights & Biases for experiment tracking
+# jupyterlab>=4.0.0          # For notebooks
+# label-studio>=1.8.0        # Data labeling tool
+
+# Optional: Specific models
+# sentence-transformers>=2.2.0  # For embeddings
+# openai>=1.0.0                  # For GPT API
