@@ -29,6 +29,24 @@ const PRESETS = [
     preview: '\\lim_{x \\to 2} \\frac{4(\\sqrt{x+2} - 2)}{4 - x^2}',
   },
   {
+    category: 'សមីការឌីផេរ៉ង់ស្យែល (Differential)',
+    label: 'សមីការលីនេអ៊ែរលំដាប់ទី១ y\'+ay=0',
+    text: "ដោះស្រាយសមីការ 2y' - 3y = 0",
+    preview: "2y' - 3y = 0",
+  },
+  {
+    category: 'សមីការឌីផេរ៉ង់ស្យែល (Differential)',
+    label: 'លក្ខខណ្ឌដើមកូស៊ី y(x0)=y0',
+    text: "ដោះស្រាយ y' = e^{2x} , y(0) = 5",
+    preview: "y' = e^{2x}, \\, y(0) = 5",
+  },
+  {
+    category: 'សមីការឌីផេរ៉ង់ស្យែល (Differential)',
+    label: 'ផ្ទៀងផ្ទាត់ចម្លើយសមីការ',
+    text: "y = x + e^x , y' - y = 1 - x",
+    preview: "y = x + e^x, \\, y' - y = 1 - x",
+  },
+  {
     category: 'អាំងតេក្រាល (Integral)',
     label: 'អាំងតេក្រាលកំណត់',
     text: '\\int_{0}^{\\pi} \\sin(x) dx',

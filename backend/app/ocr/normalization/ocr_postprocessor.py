@@ -200,7 +200,7 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 'j;' or 'j:' -> '\int_{0}^{2} ' (semicolon/colon confused with bounds '0' and '2')
     text = re.sub(r"(?<![a-zA-Z\\\\])j[;:]\s*", lambda m: r"\int_{0}^{2} ", text)
     # '}}' -> '\int_{0}^{2} ' (double curly brace curve confused with integral with bounds)
-    text = re.sub(r"(?<![a-zA-Z\\\\])\}\}(?=\s*[\(\[]?[0-9a-zA-Z])", lambda m: r"\int_{0}^{2} ", text)
+    text = re.sub(r"(?<![a-zA-Z0-9\\\}\]])\}\}(?=\s*[\(\[]?[0-9a-zA-Z])", lambda m: r"\int_{0}^{2} ", text)
     # 'J 1 2' or 'J12' or 'J2' -> '\int_{1}^{2} '
     text = re.sub(r"\bJ\s*1\s*2\s*", lambda m: r"\int_{1}^{2} ", text)
     text = re.sub(r"\bJ\s*2(?=[a-zA-Z(])", lambda m: r"\int_{1}^{2} ", text)
@@ -218,7 +218,49 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
         text,
     )
 
-    # 16. Clean multiple spaces
+    # 17. Differential Equation OCR repairs:
+    # 17a. Normalize derivative primes, asterisks, dagger, 1-powers: y^*, y^1, y^\dagger -> y'
+    text = re.sub(r"\\nonumber\b", "", text)
+    # compound derivative exponents first: y^{*+\zeta} -> y' + y
+    text = re.sub(r"y\s*\^\s*\{?\s*(?:\*|\\ast|\'|’)\s*\+\s*(?:\\zeta|\\xi|y|\{y\}|[a-zA-Z])\s*\}?", "y' + y", text)
+    text = re.sub(r"\{?y\}?\s*\^\s*\{?(?:\\ast|\*|1|\\dagger|\\prime|\')\}?", "y'", text)
+    text = re.sub(r"y\s*[\'’\u2019]", "y'", text)
+    text = re.sub(r"([0-9a-zA-Z\)])\s*v\'", r"\1y'", text)
+    text = re.sub(r"\bv\'\b", "y'", text)
+    text = re.sub(r"(?<!\\frac)(?<!\})\s*\{y\}", " y", text)
+    # 17b. Inx / In x / 1nx -> \ln x
+    text = re.sub(r"\b[I1]n\s*([a-zA-Z\(])", r"\\ln \1", text)
+    # 17c. e* -> e^x, ex* / e3* -> e^{3x}, e-2x -> e^{-2x}, e^{-2\lambda} -> e^{-2x}
+    text = re.sub(r"\be\s*\*\b", "e^x", text)
+    text = re.sub(r"\be\s*([0-9]+)\s*\*", r"e^{\1x}", text)
+    text = re.sub(r"\be\s*([+\-])\s*([0-9]+[a-zA-Z])\b", r"e^{\1\2}", text)
+    text = re.sub(r"\be\s*([2-9][a-zA-Z])\b", r"e^{\1}", text)
+    text = re.sub(r"e\^\{?\s*([+\-]?\d+)\s*\\lambda\}?", r"e^{\1x}", text)
+    # 17d. y'ty -> y' + y, y'42y -> y' + 2y
+    text = re.sub(r"y\'\s*t\s*([a-zA-Z0-9])", r"y' + \1", text)
+    text = re.sub(r"y\'\s*4\s*([0-9]+[a-zA-Z])", r"y' + \1", text)
+    # 17e. y' // 2 or y' V2 -> y' + y\sqrt{2}
+    text = re.sub(r"y\'\s*\+\s*y\s*(?://|[Vv])\s*(\d+)", r"y' + y\\sqrt{\1}", text)
+    # 17f. % in intervals -> \infty (e.g. (0, +%) -> (0, +\infty))
+    text = re.sub(r"\(\s*0\s*,\s*\+\s*[%&]\s*\)", r"(0, +\\infty)", text)
+    # 17g. Fix dy/dx OCR: dឬ, d_, dy/dx, \frac{dv}{dx} -> \frac{dy}{dx}, 3^\frac{N}{4\lambda} -> 3\frac{dy}{dx}
+    text = re.sub(r"\bd[ឬ_]\b", r"\\frac{dy}{dx}", text)
+    text = re.sub(r"\\frac\{\s*d[vV]\s*\}\{\s*d[xX]\s*\}", r"\\frac{dy}{dx}", text)
+    text = re.sub(r"(\d+)\s*\^\s*\\frac\{[^\}]*\}\{[^\}]*\}", r"\1\\frac{dy}{dx}", text)
+    text = re.sub(r"\\frac\s*y\s*y\b|\\frac\{\s*y\s*\}\{\s*y\s*\}", r"\\frac{y'}{y}", text)
+    text = re.sub(r"\\frac\s*\{([^}]+)\}\s*([a-zA-Z0-9])\b", r"\\frac{\1}{\2}", text)
+    text = re.sub(r"\\ln\^([0-9]+)", r"\\ln \1", text)
+    text = re.sub(r"\{\\mathsf\{S\}\}|\\mathsf\{S\}", "5", text)
+    # 17h. Solution verification OCR fixes
+    text = re.sub(r"\\lor\s*=\s*", "y = ", text)
+    text = re.sub(r"\\forall\^\{\\prime\}|\\forall\'", "y'", text)
+    text = re.sub(r"\{\s*-\s*y\s*\}", "- y", text)
+    text = re.sub(r"\bl\s*-\s*x\b", "1 - x", text)
+    text = re.sub(r"\{\\alpha\}_\{\s*,?\s*\}", ",", text)
+    # 17i. Domain annotation OCR repairs
+    text = re.sub(r"(?:\{*\\hat\{\\overline\{.*?\}\}+|\bMighiNh9\b).*?(?=\\left\(\s*[\+\-]?\s*\d|\(\s*[\+\-]?\s*\d)", r"\\text{ កំណត់លើ } ", text)
+
+    # 18. Clean multiple spaces
     text = re.sub(r"[ \t]+", " ", text).strip()
 
     return text

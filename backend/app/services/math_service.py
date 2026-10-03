@@ -96,6 +96,8 @@ class MathService:
         elif any(kw in q_lower for kw in ["ពន្លាត", "expand"]):
             if problem_type in ("algebraic_expression", "factored_expression"):
                 problem_type = "expression_expansion"
+        elif any(kw in q_lower for kw in ["ឌីផេរ៉ង់ស្យែល", "differential"]):
+            problem_type = "calculus_differential_equation"
         elif any(kw in q_lower for kw in ["ដេរីវេ", "derivative", "differentiate", "derive"]):
             problem_type = "calculus_derivative"
         elif any(kw in q_lower for kw in ["រួម ឬរីក", "រួមឬរីក", "ភាពរួម", "ស្វ៊ីតរួម", "ស្វ៊ីតរីក"]):

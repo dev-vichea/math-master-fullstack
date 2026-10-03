@@ -50,8 +50,10 @@ class ParsedInstruction:
 
         instruction_type = action_to_type.get(self.action, InstructionType.UNKNOWN)
 
-        # Calculus instruction refinement (integrals & derivatives)
-        if any(k in self.text.lower() for k in ("អាំងតេក្រាល", "ព្រីមីទីវ", "integral", "antiderivative")):
+        # Calculus instruction refinement (integrals, derivatives, differential equations)
+        if any(k in self.text.lower() for k in ("ឌីផេរ៉ង់ស្យែល", "differential")):
+            instruction_type = InstructionType.DIFFERENTIAL_EQUATION
+        elif any(k in self.text.lower() for k in ("អាំងតេក្រាល", "ព្រីមីទីវ", "integral", "antiderivative")):
             instruction_type = InstructionType.INTEGRAL
         elif any(k in self.text.lower() for k in ("ដេរីវេ", "derivative", "differentiate")):
             instruction_type = InstructionType.DERIVATIVE

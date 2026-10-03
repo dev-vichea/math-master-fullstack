@@ -8,6 +8,7 @@ Context-Aware Classification → Problem Solving → Exercise Document
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from app.classifier.context_aware_classifier import ContextAwareClassifier
@@ -196,15 +197,22 @@ class ExerciseService:
 
             # If classified as instruction, check if it actually contains problem items
             # (e.g. "ក. គណនា A = x+y" or "- ខ. គណនា C = x^2 - xy + y^2")
+            # Do NOT convert if it is a numbered section instruction like "3. ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទី1"
             if region_type == RegionType.INSTRUCTION:
-                extracted_probe = self.problem_extractor.extract_from_blocks(
-                    [block], language=language
+                clean_txt = block.text.strip()
+                is_section_heading = bool(
+                    re.match(r"^(\d+|[ivxIVX]+|[០១២៣៤៥៦៧៨៩]+)[\.:\)]\s*(?:ដោះស្រាយ|គណនា|ចូរ|រក|បង្ហាញ|សង្ខេប|solve|find|calculate|evaluate|determine|prove)", clean_txt, re.IGNORECASE)
+                    or any(k in clean_txt for k in ("សមីការឌីផេរ៉ង់ស្យែល", "differential equation", "លំដាប់ទី"))
                 )
-                if extracted_probe and any(
-                    self.region_classifier._math_pattern.search(p.content)
-                    for p in extracted_probe
-                ):
-                    region_type = RegionType.PROBLEM_CONTENT
+                if not is_section_heading:
+                    extracted_probe = self.problem_extractor.extract_from_blocks(
+                        [block], language=language
+                    )
+                    if extracted_probe and any(
+                        self.region_classifier._math_pattern.search(p.content)
+                        for p in extracted_probe
+                    ):
+                        region_type = RegionType.PROBLEM_CONTENT
 
             # Detect instructions
             if region_type == RegionType.INSTRUCTION:

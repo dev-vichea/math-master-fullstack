@@ -184,6 +184,16 @@ class ProblemClassifier:
                 return "sequence_limit"
             return "calculus_limit"
 
+        # Differential equations (takes precedence over generic derivative)
+        if getattr(parsed, "metadata", {}).get("is_differential_equation"):
+            return "calculus_differential_equation"
+        if (
+            isinstance(expr, Eq)
+            and (isinstance(expr.lhs, Derivative) or isinstance(expr.rhs, Derivative) or expr.has(Derivative))
+            and any(getattr(s, "name", "") == "y" for s in parsed.symbols)
+        ):
+            return "calculus_differential_equation"
+
         if isinstance(expr, Derivative) or (
             isinstance(expr, Eq) and (isinstance(expr.rhs, Derivative) or isinstance(expr.lhs, Derivative))
         ):

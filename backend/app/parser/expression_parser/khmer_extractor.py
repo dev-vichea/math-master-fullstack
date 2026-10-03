@@ -15,7 +15,7 @@ import re
 # A run of characters that looks like math: digits, letters (variables),
 # operators, parentheses, decimal points, '=', inequality signs, whitespace,
 # and LaTeX syntax (backslashes, braces, underscores).
-_EXPRESSION_RUN = re.compile(r"[0-9a-zA-Z.\+\-\*/\^=()\[\]\s<>=≤≥\\{}_]{3,}")
+_EXPRESSION_RUN = re.compile(r"[0-9a-zA-Z.\+\-\*/\^=()\[\]\s<>=≤≥\\{}_'’|,]{3,}")
 
 # Two-or-more consecutive Latin letters that are NOT part of a LaTeX command
 _MULTI_LETTER_WORD = re.compile(r"(?<!\\)\b[a-zA-Z]{2,}\b")
@@ -45,6 +45,12 @@ def extract_expression(normalized_text: str) -> str | None:
     candidates = _EXPRESSION_RUN.findall(text_without_words)
     if not candidates:
         return None
+
+    # Check if verification sentence with multiple equations
+    if any(k in normalized_text for k in ("ជាចម្លើយនៃសមីការ", "ជាចម្លើយ", "is a solution to", "is a solution of", "solution of the differential equation")):
+        eq_runs = [c.strip() for c in candidates if "=" in c and len(c.strip()) >= 3]
+        if len(eq_runs) >= 2:
+            return f"{eq_runs[0]} , {eq_runs[1]}"
 
     # Prefer candidates that contain at least one digit
     with_digits = [c for c in candidates if re.search(r"\d", c)]

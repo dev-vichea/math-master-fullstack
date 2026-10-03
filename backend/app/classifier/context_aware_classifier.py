@@ -93,6 +93,9 @@ class ContextAwareClassifier:
             "sequence_recurrence",
             "sequence_convergence",
         ],
+        InstructionType.DIFFERENTIAL_EQUATION: [
+            "calculus_differential_equation",
+        ],
     }
 
     def __init__(self):
@@ -241,6 +244,10 @@ class ContextAwareClassifier:
         # Derivative instruction: calculus derivative
         if instruction_type == InstructionType.DERIVATIVE:
             return "calculus_derivative"
+
+        # Differential equation instruction: calculus differential equation
+        if instruction_type == InstructionType.DIFFERENTIAL_EQUATION:
+            return "calculus_differential_equation"
 
         # Default: return base type
         return base_type

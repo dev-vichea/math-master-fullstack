@@ -38,6 +38,7 @@ class InstructionType(str, Enum):
     INTEGRAL = "integral"  # គណនាអាំងតេក្រាល - calculate integral
     CONVERGENCE = "convergence"  # សិក្សាភាពរួម ឬរីក - study convergence/divergence
     SEQUENCE = "sequence"  # ស្វ៊ីត - sequence operations
+    DIFFERENTIAL_EQUATION = "differential_equation"  # សមីការឌីផេរ៉ង់ស្យែល - differential equations
     UNKNOWN = "unknown"  # Cannot determine instruction type
 
 

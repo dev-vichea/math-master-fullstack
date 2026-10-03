@@ -53,6 +53,8 @@ _SOLVE_KEYWORDS_KM = [
     "គណនាដេរីវេ",  # calculate derivative
     "រកដេរីវេ",  # find derivative
     "ដេរីវេនៃអនុគមន៍",  # derivative of function
+    "សមីការឌីផេរ៉ង់ស្យែល",  # differential equation
+    "ឌីផេរ៉ង់ស្យែល",  # differential
 ]
 
 # English phrasings for "solve"
@@ -76,6 +78,9 @@ _SOLVE_KEYWORDS_EN = [
     "derivative",
     "differentiate",
     "derive",
+    "differential equation",
+    "differential equations",
+    "differential",
 ]
 
 _SIMPLIFY_KEYWORDS_KM = [

@@ -10,10 +10,11 @@ when we render steps back out.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import sympy
-from sympy import Eq, Limit, Symbol
+from sympy import Derivative, Eq, Function, Limit, Symbol
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -45,6 +46,7 @@ class ParsedMath:
     is_equation: bool
     sympy_expr: sympy.Expr | Eq
     symbols: list[Symbol]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def _clean_latex_text(text: str) -> str:
@@ -201,6 +203,168 @@ def _parse_latex(text: str) -> tuple[sympy.Expr | Eq, bool]:
         return expr, isinstance(expr, Eq)
 
 
+def _standardize_symbols(expr: Any) -> Any:
+    """Standardize symbols to plain unadorned Symbol objects without extraneous assumptions."""
+    if not hasattr(expr, "free_symbols"):
+        return expr
+    subs_map = {}
+    for s in expr.free_symbols:
+        if s.name in ("e", r"\mathrm{e}"):
+            subs_map[s] = sympy.E
+        elif s.name in ("pi", r"\pi"):
+            subs_map[s] = sympy.pi
+        else:
+            subs_map[s] = Symbol(s.name)
+    return expr.subs(subs_map)
+
+
+def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
+    """
+    Detect and parse first-order differential equations, including:
+    - Direct integration: y' = f(x), xy' = 1
+    - Cauchy initial value problems: y' = f(x), y(x0) = y0
+    - First-order linear homogeneous ODEs: y' + ay = 0, dy/dx + 2y = 0
+    - Separable ODEs: y'/y = cos(x), y'/tan(x) = 1
+    - Solution verification: y = f(x), y' - y = 1 - x
+    """
+    text = raw_expression.strip()
+    text = text.replace(r"\left", "").replace(r"\right", "")
+    text = re.sub(r"\\nonumber\b", "", text)
+    # Ensure fraction denominators have braces: \frac{u}y -> \frac{u}{y}
+    text = re.sub(r"\\frac\s*\{([^}]+)\}\s*([a-zA-Z0-9])\b", r"\\frac{\1}{\2}", text)
+
+    # Check if text contains differential equation markers
+    ode_marker = re.search(
+        r"(?:y[\'’]|y\s*\^\s*\{?\\+prime\}?|\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y?\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}|\bdy/dx\b)",
+        text,
+    )
+    if not ode_marker:
+        return None
+
+    try:
+        # 1. Extract domain annotation (e.g. កំណត់លើ (-1, 1))
+        dom_pat = re.compile(
+            r"(?:\\text\{\s*)?កំណត់លើ(?:\s*\}|\s+)*(\([^\)]+\)|\[[^\]]+\])\s*\}?",
+            re.UNICODE,
+        )
+        domain = None
+        m_dom = dom_pat.search(text)
+        if m_dom:
+            domain = m_dom.group(1).strip()
+            text = text[: m_dom.start()] + text[m_dom.end() :]
+            text = text.strip()
+
+        # 2. Extract initial condition (e.g. , y(1) = 4 or , y(\pi/2) = e)
+        ics_tuple = None
+        m_ics = re.search(
+            r"[,;]\s*\{?y\}?\s*\((.*?)\)\s*=\s*([^,;]+)",
+            text,
+        )
+        if m_ics:
+            x0_raw = m_ics.group(1).strip()
+            y0_raw = m_ics.group(2).strip()
+            text = text[: m_ics.start()].strip()
+            if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                x0_sp = _standardize_symbols(latex2sympy(_clean_latex_text(x0_raw)))
+                y0_sp = _standardize_symbols(latex2sympy(_clean_latex_text(y0_raw)))
+            else:
+                x0_sp = _standardize_symbols(parse_expr(x0_raw, transformations=_TRANSFORMATIONS))
+                y0_sp = _standardize_symbols(parse_expr(y0_raw, transformations=_TRANSFORMATIONS))
+            ics_tuple = (x0_sp, y0_sp)
+
+        # 3. Check for verification pair: y = f(x) , F(x, y, y') = 0
+        is_verification = False
+        verif_expr = None
+        if "," in text:
+            parts = [p.strip() for p in text.split(",") if p.strip()]
+            if len(parts) == 2:
+                p1, p2 = parts
+                if re.match(r"^\s*y\s*=\s*", p1) and not re.search(r"y[\'’]|\bdy/dx\b", p1) and re.search(r"y[\'’]|\bdy/dx\b", p2):
+                    is_verification = True
+                    verif_raw = p1.split("=", 1)[1].strip()
+                    if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                        verif_expr = _standardize_symbols(latex2sympy(_clean_latex_text(verif_raw)))
+                    else:
+                        verif_expr = _standardize_symbols(parse_expr(verif_raw, transformations=_TRANSFORMATIONS))
+                    text = p2
+                elif re.match(r"^\s*y\s*=\s*", p2) and not re.search(r"y[\'’]|\bdy/dx\b", p2) and re.search(r"y[\'’]|\bdy/dx\b", p1):
+                    is_verification = True
+                    verif_raw = p2.split("=", 1)[1].strip()
+                    if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                        verif_expr = _standardize_symbols(latex2sympy(_clean_latex_text(verif_raw)))
+                    else:
+                        verif_expr = _standardize_symbols(parse_expr(verif_raw, transformations=_TRANSFORMATIONS))
+                    text = p1
+
+        # 4. Standardize derivatives
+        t = text
+        t = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}", "y'", t)
+        t = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}\s*y", "y'", t)
+        t = t.replace("’", "'").replace("‘", "'")
+        t = re.sub(r"y\^\{\\prime\}|y\\prime", "y'", t)
+
+        # 5. Substitute y' with dummy symbol u
+        t_mod = re.sub(r"y'", "u", t)
+        if "=" in t_mod:
+            lhs_str, rhs_str = t_mod.split("=", 1)
+            if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                lhs_sp = _standardize_symbols(latex2sympy(_clean_latex_text(lhs_str.strip())))
+                rhs_sp = _standardize_symbols(latex2sympy(_clean_latex_text(rhs_str.strip())))
+            else:
+                lhs_sp = _standardize_symbols(parse_expr(lhs_str.strip(), transformations=_TRANSFORMATIONS))
+                rhs_sp = _standardize_symbols(parse_expr(rhs_str.strip(), transformations=_TRANSFORMATIONS))
+        else:
+            if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                lhs_sp = _standardize_symbols(latex2sympy(_clean_latex_text(t_mod.strip())))
+            else:
+                lhs_sp = _standardize_symbols(parse_expr(t_mod.strip(), transformations=_TRANSFORMATIONS))
+            rhs_sp = sympy.Integer(0)
+
+        # 6. Identify independent variable (default: x)
+        all_syms = set()
+        if hasattr(lhs_sp, "free_symbols"):
+            all_syms.update(lhs_sp.free_symbols)
+        if hasattr(rhs_sp, "free_symbols"):
+            all_syms.update(rhs_sp.free_symbols)
+        var_syms = [s for s in all_syms if s.name not in ("u", "y")]
+        var = var_syms[0] if var_syms else Symbol("x")
+
+        y_fn = Function("y")(var)
+        u_sym = Symbol("u")
+        y_sym = Symbol("y")
+
+        sub_map = {u_sym: Derivative(y_fn, var), y_sym: y_fn}
+        lhs = lhs_sp.subs(sub_map)
+        rhs = rhs_sp.subs(sub_map)
+        ode_eq = Eq(lhs, rhs)
+
+        # 7. Metadata
+        meta = {
+            "is_differential_equation": True,
+            "independent_var": var,
+            "dependent_var": Symbol("y"),
+            "initial_condition": ics_tuple,
+            "cauchy": ics_tuple,
+            "domain": domain,
+            "is_verification": is_verification,
+            "verification_func": verif_expr,
+            "function_rhs": verif_expr,
+            "differential_eq": ode_eq,
+            "raw_ode_str": text,
+        }
+
+        symbols = [var, Symbol("y")]
+        return ParsedMath(
+            raw_text=raw_expression,
+            is_equation=True,
+            sympy_expr=ode_eq,
+            symbols=symbols,
+            metadata=meta,
+        )
+    except Exception:
+        return None
+
+
 def parse_math_text(raw_expression: str) -> ParsedMath:
     r"""
     Parse text such as '2x+5=15', '3*(4+2)', or LaTeX '\frac{2x+5}{3}=15'
@@ -211,8 +375,14 @@ def parse_math_text(raw_expression: str) -> ParsedMath:
     - Implicit multiplication ('2x' -> '2*x')
     - Caret exponentiation ('x^2' -> 'x**2')
     - LaTeX math via latex2sympy2 ('\frac{a}{b}', '\sqrt{x}', '\le', etc.)
+    - Differential equations and initial value problems
     """
     text = raw_expression.strip()
+
+    # 0. Check for differential equations first
+    ode_parsed = _try_parse_differential_equation(text)
+    if ode_parsed is not None:
+        return ode_parsed
 
     if text.count("=") > 1:
         parts = [

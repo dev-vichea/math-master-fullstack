@@ -44,6 +44,10 @@ _INSTRUCTION_RE = re.compile(
     r"|(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?limits?(?:\s+of)?(?:\s+the\s+following)?"
     r"|(?:Find|Calculate|Evaluate|Compute|Determine|Differentiate)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?derivatives?(?:\s+of)?(?:\s+the\s+following)?(?:\s+functions?)?"
     r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?(?:នៃ)?ដេរីវេ(?:នៃអនុគមន៍)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
+    r"|(?:Solve|Find|Determine)\s+(?:the\s+)?(?:following\s+)?(?:first[- ]order\s+)?(?:linear\s+)?differential\s+equations?(?:\s+according\s+to\s+given\s+conditions?)?"
+    r"|(?:ចូរ)?ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែល(?:លីនេអ៊ែរ)?(?:លំដាប់ទី[១1])?(?:តាមលក្ខខណ្ឌដែលឲ្យ)?(?:ខាងក្រោម)?"
+    r"|(?:ចូរ)?បង្ហាញថាអនុគមន៍(?:នីមួយៗ)?ជាចម្លើយនៃសមីការឌីផេរ៉ង់ស្យែល(?:ខាងក្រោម)?"
+    r"|Show\s+that\s+(?:each\s+)?(?:of\s+the\s+following\s+)?functions?\s+(?:is|are)\s+(?:a\s+)?solutions?\s+(?:to|of)\s+the\s+differential\s+equation"
     r"|Find\s+(?:the\s+)?value\s+of\s+[a-zA-Z]\s*(?:if|in|when|where|:)?"
     r"|Solve\s+for\s+[a-zA-Z]\s*(?:if|in|when|where|:)?"
     r"|Solve\s+the\s+(?:following\s+)?equation"
@@ -99,7 +103,7 @@ _LEADING_LABEL_RE = re.compile(
 )
 
 # Mathematical expression regex
-_EXPRESSION_RUN = re.compile(r"[0-9a-zA-Z.\+\-\*/\^=()\[\]\s<>=≤≥\\{}_]{3,}")
+_EXPRESSION_RUN = re.compile(r"[0-9a-zA-Z.\+\-\*/\^=()\[\]\s<>=≤≥\\{}_'’|,]{3,}")
 _MULTI_LETTER_WORD = re.compile(r"(?<!\\)\b[a-zA-Z]{2,}\b")
 
 # Math function and LaTeX names that must never be stripped as prose words
@@ -192,6 +196,12 @@ def _extract_single_math_expression(text: str) -> str | None:
     candidates = _EXPRESSION_RUN.findall(cleaned)
     if not candidates:
         return None
+
+    # Check if verification sentence with multiple equations (e.g. y = f(x) and ODE)
+    if any(k in text for k in ("ជាចម្លើយនៃសមីការ", "ជាចម្លើយ", "is a solution to", "is a solution of", "solution of the differential equation")):
+        eq_runs = [c.strip() for c in candidates if "=" in c and len(c.strip()) >= 3]
+        if len(eq_runs) >= 2:
+            return f"{eq_runs[0]} , {eq_runs[1]}"
 
     # Prefer candidates containing digits
     with_digits = [c for c in candidates if re.search(r"\d", c)]

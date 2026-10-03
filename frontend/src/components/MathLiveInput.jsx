@@ -81,6 +81,15 @@ export default function MathLiveInput({ value, onChange, placeholder = 'វា�
           <button type="button" className="sym-btn" onClick={() => insertSymbol('\\int_{#?}^{#?} #@ \\, dx')}>
             \int_a^b
           </button>
+          <button type="button" className="sym-btn" onClick={() => insertSymbol("y'")}>
+            y'
+          </button>
+          <button type="button" className="sym-btn" onClick={() => insertSymbol('\\frac{dy}{dx}')}>
+            dy/dx
+          </button>
+          <button type="button" className="sym-btn" onClick={() => insertSymbol('e^{#?}')}>
+            eˣ
+          </button>
           <button type="button" className="sym-btn" onClick={() => insertSymbol('\\ln(#@)')}>
             \ln(x)
           </button>

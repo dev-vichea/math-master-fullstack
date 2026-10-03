@@ -72,6 +72,16 @@ def classify_problem(parsed: ParsedMath) -> str:
     if isinstance(expr, Eq) and (isinstance(expr.rhs, Limit) or isinstance(expr.lhs, Limit)):
         return "calculus_limit"
 
+    # Check if it's a calculus differential equation
+    if getattr(parsed, "metadata", {}).get("is_differential_equation"):
+        return "calculus_differential_equation"
+    if (
+        isinstance(expr, Eq)
+        and (isinstance(expr.lhs, Derivative) or isinstance(expr.rhs, Derivative) or expr.has(Derivative))
+        and any(getattr(s, "name", "") == "y" for s in parsed.symbols)
+    ):
+        return "calculus_differential_equation"
+
     # Check if it's a calculus integral
     if (
         isinstance(expr, Integral)

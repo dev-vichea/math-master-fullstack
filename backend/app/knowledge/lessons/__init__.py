@@ -5,6 +5,7 @@ Curriculum Lessons Package.
 from app.knowledge.lessons.algebra import chapter_algebra, lesson_expansion, lesson_factorization
 from app.knowledge.lessons.complex_numbers import chapter_complex_numbers, lesson_complex_numbers
 from app.knowledge.lessons.derivatives import chapter_derivatives, lesson_derivatives
+from app.knowledge.lessons.differentials import chapter_differential_equations, lesson_first_order_ode
 from app.knowledge.lessons.equations import chapter_equations, lesson_equations
 from app.knowledge.lessons.geometry import chapter_geometry, lesson_spatial_geometry
 from app.knowledge.lessons.integrals import chapter_integrals, lesson_integrals
@@ -24,6 +25,7 @@ __all__ = [
     "chapter_derivatives",
     "chapter_logarithms",
     "chapter_integrals",
+    "chapter_differential_equations",
     "chapter_geometry",
     "chapter_sequences",
     "lesson_expansion",
@@ -32,6 +34,7 @@ __all__ = [
     "lesson_equations",
     "lesson_complex_numbers",
     "lesson_derivatives",
+    "lesson_first_order_ode",
     "lesson_natural_logarithm",
     "lesson_integrals",
     "lesson_spatial_geometry",
