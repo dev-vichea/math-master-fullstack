@@ -42,6 +42,10 @@ def clean_pix2tex_output(latex_code: str) -> str:
 
     t = (latex_code or "").strip()
 
+    # Strip style switches
+    t = re.sub(r"\\(?:textstyle|displaystyle)\s*", "", t)
+    t = _unwrap_outer_braces(t)
+
     # Normalize tilde spaces, spacing commands and equivalence symbols
     t = t.replace("~", " ")
     t = t.replace("{(}", "(").replace("{)}", ")")
@@ -97,6 +101,43 @@ def clean_pix2tex_output(latex_code: str) -> str:
 
     # Normalize pipe or \mid or \vert right before a digit into 1 (e.g. |5 -> 15)
     t = re.sub(r"(?:\\mid|\\vert|\|)\s*(?=\d)", "1", t)
+
+    # Unwrap font switches (\mathbf, \mathrm, \mathit, \text, \boldsymbol, \bf, \rm)
+    t = re.sub(r"([0-9a-zA-Z])\s*\\times\s*(?=\\mathrm\{[dD]\}|[dD]|\bI|\bk|\\mathbf\{[dDIk]\})", r"\g<1>x ", t)
+    t = re.sub(r"\\(?:mathbf|mathrm|mathit|text|boldsymbol)\{([^{}]+)\}", r"\1", t)
+    t = re.sub(r"\{\\(?:bf|rm)\s+([^{}]+)\}", r"\1", t)
+    t = re.sub(r"\\(?:bf|rm)\s+([a-zA-Z0-9]+)", r"\1", t)
+    t = re.sub(r"\\(?:bf|rm)\b", "", t)
+
+    # Repair differential misrecognitions: \vert x, |x, Ix, kx, \mathrm{d}X, dX, \dim\times, \ln x -> dx
+    t = re.sub(r"([0-9a-zA-Z])\s*\\times\s*(?=\\dim)", r"\g<1>x ", t)
+    t = re.sub(r"\\dim\s*\\times\b", "dx", t)
+    t = re.sub(r"\\dim\s*([xX])\b", r"d\1", t)
+    t = re.sub(r"(\\int.*?(?:[0-9a-zA-Z\)\]\}]))\s*\\ln\s*([xX])\b", r"\1 d\2", t)
+    t = re.sub(r"(?:\\vert|\|)\s*(?:\\(?:mathbf|mathrm|bf)\s*)?([xX])\b", r"d\1", t)
+    t = re.sub(r"\b[Ik]\s*([xX])\b", r"d\1", t)
+    t = re.sub(r"\b[dD]\s*([xX])\b", r"d\1", t)
+    t = re.sub(r"\b[dD]\s*X\b", "dx", t)
+    t = re.sub(r"\\mathrm\{[dD]\}\s*([xX])\b", r"d\1", t)
+    t = re.sub(r"\\mathrm\{\s*d\s*\}", "d", t)
+
+    # Normalize \times recognized as variable x
+    t = re.sub(r"\\times(?=[\^_])", "x", t)
+    t = re.sub(r"(\\int(?:_\{[^}]*\}\^\{[^}]*\}|_[0-9a-zA-Z]\^[0-9a-zA-Z])?\s*)\\times\b", r"\1x", t)
+    t = re.sub(r"([(\[{])\s*\\times\b", r"\1x", t)
+    t = re.sub(r"\\times\s*(?=\\mathrm\{[dD]\}|[dD]|\bI|\bk|\\dim|\b[dD][xyzut])", "x ", t)
+
+    # Hallucinated integral symbol when OCR misreads label + bounds:
+    # e.g. {\tilde{\mathbb{N}}}_{0}^{2}, \Phi_{0}^{2}, \Phi_{0}|_{0}^{2}, \mathbf{\hat{n}}_{n}^{2}, \mathfrak{A}_{1}^{2}
+    t = re.sub(r"^\\Phi_{0}\|(?=_{)", "", t)
+    t = re.sub(
+        r"^(?:\{?\\(?:tilde|hat|bar)\{\\(?:mathbb|mathbf|mathrm)\{[A-Z]\}\}\}?|\\(?:Phi|Psi|Omega|Theta|Xi|Gamma)|\\mathbf\{\\hat\{[a-z]\}\}|{\\mathfrak\{[A-Za-z]\}}|[A-Za-z])_\{?([0-9a-zA-Z])\}?\^\{?([0-9a-zA-Z])\}?(?=.*(?:\\mathrm\{d\}|d[xyzut]|\b[Ik]x))",
+        lambda m: rf"\int_{{{m.group(1)}}}^{{{m.group(2)}}}",
+        t,
+    )
+    # Fix lower bound OCR typos: n, a, o, O -> 0 when upper bound is a positive digit
+    t = re.sub(r"(\\int_)\{?[naoO]\}?(\^\{?[1-9]\}?)", r"\g<1>{0}\2", t)
+
     # Strip leading label artifacts like \mathcal{Q}. or 2. or a. or (a) before a formula
     t = re.sub(
         r"^\s*(?:"
@@ -145,6 +186,16 @@ def clean_pix2tex_output(latex_code: str) -> str:
     # Unwrap redundant wrapper braces around \frac e.g. '{\frac{...}{...}}' -> '\frac{...}{...}'
     # Preserve braces if preceded by \sqrt or \sqrt[...] (where braces enclose the radicand)
     t = re.sub(r"(?<!\\sqrt)(?<!\\sqrt\[\d\])\{\s*(\\frac\{[^{}]*\}\{[^{}]*\})\s*\}", r"\1", t)
+
+    # Strip trailing noise after differential at end of expression (e.g. ~v, \Psi, \{)
+    t = re.sub(r"(d[xyzut])\s*[^0-9a-zA-Z+\-*/=^()\[\]{}]+.*$", r"\1", t)
+    while t.startswith("{") and t.count("{") > t.count("}"):
+        t = t[1:].strip()
+    while t.endswith("}") and t.count("}") > t.count("{"):
+        t = t[:-1].strip()
+    t = _unwrap_outer_braces(t)
+    t = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(d[xyzut]\b)", r" \1", t)
+
     t = re.sub(r"\s+", " ", t)
     return t.strip()
 
@@ -177,31 +228,81 @@ class Pix2TexVisionEngine(MathVisionEngine):
     @staticmethod
     def _detect_label_gap(img: Image.Image) -> int | None:
         """
-        Detect vertical blank gap in the left 35% of an image that separates
-        an exercise label (e.g. 'ក.', '1.', '(a)') from the mathematical formula.
+        Detect vertical blank gap in the left 45% of an image that separates
+        an exercise label (e.g. 'ក.', '1.', '(a)', 'គ.') from the mathematical formula.
+        Uses connected components analysis and column ink profiles for robust splitting.
         """
         try:
+            import cv2
             import numpy as np
 
             gray = np.array(img.convert("L"))
             h, w = gray.shape
-            binary = gray < 200
-            col_counts = np.sum(binary, axis=0)
+            binary = ((gray < 200) * 255).astype(np.uint8)
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+            comps = []
+            for i in range(1, num_labels):
+                x, y, cw, ch, area = stats[i]
+                if area > 8:
+                    comps.append((x, y, cw, ch, area))
+            if not comps:
+                return None
+            comps.sort(key=lambda c: c[0])
 
-            max_search_x = int(w * 0.45)
-            gap_start = None
-            for x in range(5, max_search_x):
-                if col_counts[x] <= 1:
-                    if gap_start is None:
-                        gap_start = x
-                else:
-                    if gap_start is not None:
-                        gap_len = x - gap_start
-                        if gap_len >= 10:
-                            ink_left = np.sum(col_counts[:gap_start])
-                            if ink_left > 30:
-                                return gap_start + gap_len // 2
-                        gap_start = None
+            # Candidate label must be on the left (starting within left 45% of width)
+            c0 = comps[0]
+            if c0[0] > w * 0.45:
+                return None
+
+            # If c0 is very tall relative to image height (e.g. integral spanning top to bottom),
+            # it is not an exercise label
+            if c0[3] > h * 0.55 and c0[2] < 20:
+                return None
+
+            # Check for Label + Dot: e.g. 'ក.', 'គ.', '1.'
+            if len(comps) >= 2:
+                for dot_idx in range(1, min(4, len(comps))):
+                    dot = comps[dot_idx]
+                    # Dot is small (width <= 14, height <= 14, area <= 80)
+                    # and lies reasonably close to the label component (within 25px)
+                    if (
+                        dot[0] > c0[0]
+                        and dot[0] <= c0[0] + c0[2] + 25
+                        and dot[2] <= 14
+                        and dot[3] <= 14
+                        and dot[4] <= 80
+                        and (dot[1] + dot[3] >= c0[1] + c0[3] * 0.6)
+                    ):
+                        # Found label dot! Look for start of math expression after dot
+                        math_start = None
+                        for m_idx in range(dot_idx + 1, len(comps)):
+                            if comps[m_idx][0] > dot[0] + dot[2]:
+                                math_start = comps[m_idx][0]
+                                break
+                        if math_start is not None and math_start > dot[0] + dot[2]:
+                            split_x = dot[0] + dot[2] + (math_start - (dot[0] + dot[2])) // 2
+                            return int(split_x)
+                        elif dot[0] + dot[2] < w * 0.5:
+                            return int(dot[0] + dot[2] + 2)
+
+            # Fallback 1: check for distinct gap >= 10px after a compact left component
+            if len(comps) >= 2:
+                c1 = comps[1]
+                gap = c1[0] - (c0[0] + c0[2])
+                if gap >= 10 and c0[2] <= 45 and c0[3] <= h * 0.6:
+                    return int(c0[0] + c0[2] + gap // 2)
+
+            # Fallback 2: Column projection
+            col_counts = np.sum(binary > 0, axis=0)
+            ink_cols = np.where(col_counts > 1)[0]
+            if len(ink_cols) > 0:
+                first_x = ink_cols[0]
+                max_search = min(first_x + 90, int(w * 0.45))
+                for x in range(first_x + 18, max_search):
+                    if col_counts[x] <= 1 and np.max(col_counts[x : min(x + 15, w)]) >= 15:
+                        ink_left = np.sum(col_counts[first_x:x])
+                        if 30 <= ink_left <= 1500:
+                            return int(x)
         except Exception:
             pass
         return None
@@ -231,7 +332,7 @@ class Pix2TexVisionEngine(MathVisionEngine):
         import re
 
         if re.match(
-            r"^(\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)|[a-zA-Z0-9\u1780-\u17a2]{1,2}[\.\)៖:])\s*$",
+            r"^(\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)|[a-zA-Z0-9\u1780-\u17a2]{1,2}[\.\)៖:។]?)\s*$",
             t,
         ):
             return True

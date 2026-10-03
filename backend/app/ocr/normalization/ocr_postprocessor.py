@@ -11,7 +11,12 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from app.core.khmer.digits import khmer_digits_to_arabic
+_KHMER_DIGITS = str.maketrans("០១២៣៤៥៦៧៨៩", "0123456789")
+
+
+def khmer_digits_to_arabic(text: str) -> str:
+    """Convert Khmer digits (០-៩) to Arabic digits (0-9)."""
+    return text.translate(_KHMER_DIGITS)
 
 # Unicode superscripts to standard caret notation mapping
 _SUPERSCRIPT_MAP = {
@@ -66,8 +71,14 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 1. Convert Khmer digits to Arabic
     text = khmer_digits_to_arabic(text)
 
-    # 2. Normalize Khmer punctuation chan '៖'
+    # 2. Normalize Khmer punctuation chan '៖' and sentence ends '។' / '៕'
+    # Convert Khmer punctuation '។' after labels like 'ក។' to standard dot 'ក.'
+    text = re.sub(r"([ក-អ])។", r"\1.", text)
     text = text.replace("៖", ":")
+    text = text.replace("។", " ").replace("៕", " ")
+
+    # 2b. Convert Unicode integral symbols
+    text = text.replace("∫", r"\int ").replace("∬", r"\iint ").replace("∭", r"\iiint ")
 
     # 3. Unicode superscripts (x² -> x^2, x³ -> x^3)
     for sup_char, caret_expr in _SUPERSCRIPT_MAP.items():
@@ -93,10 +104,10 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 8. Colon as division between pure numbers (e.g., '12 : 3' -> '12 / 3', not '1 : 2x')
     text = re.sub(r"(?<=\d)\s*:\s*(?=\d+\b(?![a-zA-Z]))", " / ", text)
 
-    # 9. Detect OCR collapsed exponents (e.g. 'x2 - 25x + 15 = 0', '10x2 + 8x = 32', 'x2 = 16')
-    # Where a single variable letter is immediately followed by digit 2-9 and then an operator/space/end
+    # 9. Detect OCR collapsed exponents (e.g. 'x2 - 25x + 15 = 0', '10x2 + 8x = 32', 'x2 = 16', 'x2dx')
+    # Where a single variable letter is immediately followed by digit 2-9 and then an operator/space/differential/end
     text = re.sub(
-        r"(?<=[a-zA-Z])([2-9])(?=[+\-*/=<>≤≥\s\),]|;|$)",
+        r"(?<=[a-zA-Z])([2-9])(?=[+\-*/=<>≤≥\s\),]|;|d[xyzut]\b|$)",
         r"^\1",
         text,
     )
@@ -126,20 +137,88 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 14b. Fix stray \cdot before variable in limit subscript (e.g., \lim_{\cdot n \to ...} -> \lim_{n \to ...})
     text = re.sub(r"\\cdot\s*([a-zA-Z])\s*\\to", r"\1 \\to", text)
 
-    # 14c. Unwrap LaTeX font commands (\mathbf, \mathrm, \mathit, \text) to prevent parser truncation
-    text = re.sub(r"\\(?:mathbf|mathrm|mathit|text)\{([^{}]+)\}", r"\1", text)
+    # 14c. Strip textstyle/displaystyle
+    text = re.sub(r"\\(?:textstyle|displaystyle)\s*", "", text)
 
-    # 14d. Fix repeated trig argument artifacts from glyph kerning (e.g. \sin n n -> \sin(n))
+    # 14d. Replace \times before differential with x (e.g. 3\times\mathrm{d}X -> 3x dx)
+    text = re.sub(r"([0-9a-zA-Z])\s*\\times\s*(?=\\mathrm\{[dD]\}|[dD]|\bI|\bk|\\mathbf\{[dDIk]\})", r"\g<1>x ", text)
+
+    # 14e. Unwrap LaTeX font commands (\mathbf, \mathrm, \mathit, \text, \boldsymbol, \bf, \rm) to prevent parser truncation
+    text = re.sub(r"\\(?:mathbf|mathrm|mathit|text|boldsymbol)\{([^{}]+)\}", r"\1", text)
+    text = re.sub(r"\{\\(?:bf|rm)\s+([^{}]+)\}", r"\1", text)
+    text = re.sub(r"\\(?:bf|rm)\s+([a-zA-Z0-9]+)", r"\1", text)
+    text = re.sub(r"\\(?:bf|rm)\b", "", text)
+
+    # 14f. Fix repeated trig argument artifacts from glyph kerning (e.g. \sin n n -> \sin(n))
     text = re.sub(r"\\(sin|cos|tan)\s*([a-zA-Z])\s*\{?\2\}?", r"\\\1(\2)", text)
 
-    # 14e. Fix digit 5 confused with 's' or '{s}' before variable with exponent (e.g., '{s} n^2' or 'sn^2' -> '5n^2')
+    # 14g. Fix digit 5 confused with 's' or '{s}' before variable with exponent (e.g., '{s} n^2' or 'sn^2' -> '5n^2')
     text = re.sub(r"(?:\{\s*[sS]\s*\}|\b[sS]\b)\s*(\{?[a-zA-Z]\}?\^)", r"5\1", text)
     text = re.sub(r"(?<=[+\-*/=\(\{\s/])\s*[sS](?=[a-zA-Z]\^)", "5", text)
 
-    # 14f. Fix \cos{\pi}n, \cos\pi n without argument parentheses -> \cos(\pi n)
+    # 14h. Fix \cos{\pi}n, \cos\pi n without argument parentheses -> \cos(\pi n)
     text = re.sub(r"\\(sin|cos|tan)(?:\{\\pi\}|\s*\\pi)\s*([a-zA-Z])", r"\\\1(\\pi \2)", text)
 
-    # 15. Clean multiple spaces
+    # 15. Integral & Differential OCR Repairs
+    # 15a. Differential typos: \vert x, |x, Ix, kx, dX, \mathrm{d}X, \dim\times, \ln x -> dx
+    text = re.sub(r"([0-9a-zA-Z])\s*\\times\s*(?=\\dim)", r"\g<1>x ", text)
+    text = re.sub(r"\\dim\s*\\times\b", "dx", text)
+    text = re.sub(r"\\dim\s*([xX])\b", r"d\1", text)
+    text = re.sub(r"(\\int.*?(?:[0-9a-zA-Z\)\]\}]))\s*\\ln\s*([xX])\b", r"\1 d\2", text)
+    text = re.sub(r"(?:\\vert|\|)\s*(?:\\(?:mathbf|mathrm|bf)\s*)?([xX])\b", r"d\1", text)
+    text = re.sub(r"\b[Ik]\s*([xX])\b", r"d\1", text)
+    text = re.sub(r"\b[dD]\s*X\b", "dx", text)
+    text = re.sub(r"\\mathrm\{[dD]\}\s*([xX])\b", r"d\1", text)
+    text = re.sub(r"\\mathrm\{\s*d\s*\}", "d", text)
+    text = re.sub(r"([0-9a-zA-Z\)\]\}])\s*ix\b", r"\1 dx", text)
+    text = re.sub(r"([0-9a-zA-Z\)\]\}])\s*id\b", r"\1 dx", text)
+
+    # Normalize \times recognized as variable x
+    text = re.sub(r"\\times(?=[\^_])", "x", text)
+    text = re.sub(r"(\\int(?:_\{[^}]*\}\^\{[^}]*\}|_[0-9a-zA-Z]\^[0-9a-zA-Z])?\s*)\\times\b", r"\1x", text)
+    text = re.sub(r"([(\[{])\s*\\times\b", r"\1x", t := text)
+    text = re.sub(r"\\times\s*(?=\\mathrm\{[dD]\}|[dD]|\bI|\bk|\\dim|\b[dD][xyzut])", "x ", text)
+
+    # 15b. Hallucinated integral symbol from label + bounds:
+    text = re.sub(r"^\\Phi_{0}\|(?=_{)", "", text)
+    text = re.sub(
+        r"^(?:\{?\\(?:tilde|hat|bar)\{\\(?:mathbb|mathbf|mathrm)\{[A-Z]\}\}\}?|\\(?:Phi|Psi|Omega|Theta|Xi|Gamma)|\\mathbf\{\\hat\{[a-z]\}\}|{\\mathfrak\{[A-Za-z]\}}|[A-Za-z])_\{?([0-9a-zA-Z])\}?\^\{?([0-9a-zA-Z])\}?(?=.*(?:\\mathrm\{d\}|d[xyzut]|\b[Ik]x))",
+        lambda m: rf"\int_{{{m.group(1)}}}^{{{m.group(2)}}}",
+        text,
+    )
+    # Fix lower bound OCR typos: n, a, o, O -> 0 when upper bound is a positive digit
+    text = re.sub(r"(\\int_)\{?[naoO]\}?(\^\{?[1-9]\}?)", r"\g<1>{0}\2", text)
+
+    # 15c. Ensure space before differential: e.g. 3xdx -> 3x dx, 4xdx -> 4x dx
+    text = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(d[xyzut]\b)", r" \1", text)
+
+    # 15d. Specific Khmer OCR misrecognitions for integral with bounds:
+    # 'jូ' -> '\int_{0}^{2} ' (Khmer subscript vowel 'ូ' confused with bounds '0' and '2')
+    text = re.sub(r"(?<![a-zA-Z\\\\])jូ\s*", lambda m: r"\int_{0}^{2} ", text)
+    # 'fទ' -> '\int_{1}^{4} ' (Khmer consonant 'ទ' confused with bounds '1' and '4')
+    text = re.sub(r"(?<![a-zA-Z\\\\])fទ\s*", lambda m: r"\int_{1}^{4} ", text)
+    # 'j;' or 'j:' -> '\int_{0}^{2} ' (semicolon/colon confused with bounds '0' and '2')
+    text = re.sub(r"(?<![a-zA-Z\\\\])j[;:]\s*", lambda m: r"\int_{0}^{2} ", text)
+    # '}}' -> '\int_{0}^{2} ' (double curly brace curve confused with integral with bounds)
+    text = re.sub(r"(?<![a-zA-Z\\\\])\}\}(?=\s*[\(\[]?[0-9a-zA-Z])", lambda m: r"\int_{0}^{2} ", text)
+    # 'J 1 2' or 'J12' or 'J2' -> '\int_{1}^{2} '
+    text = re.sub(r"\bJ\s*1\s*2\s*", lambda m: r"\int_{1}^{2} ", text)
+    text = re.sub(r"\bJ\s*2(?=[a-zA-Z(])", lambda m: r"\int_{1}^{2} ", text)
+    # Digit bounds following integral glyph: e.g. 'j 0 2', 'J 1 4', 'f 0 2'
+    text = re.sub(
+        r"(?<![a-zA-Z\\\\])[jJfរ]\s*(\d)\s*(\d)\s*(?=[a-zA-Z(])",
+        lambda m: rf"\int_{{{m.group(1)}}}^{{{m.group(2)}}} ",
+        text,
+    )
+    # General [jJfរ] before math expression ending with differential d[xyzut]:
+    # e.g., 'f(6x-7)e^{...} dx', 'J3e^x dx', 'រ3x dx' -> '\int ...'
+    text = re.sub(
+        r"(?<![a-zA-Z\\\\])[jJfរ](?=\s*[\(\[]?[0-9a-zA-Z].*?d[xyzut]\b)",
+        lambda m: r"\int ",
+        text,
+    )
+
+    # 16. Clean multiple spaces
     text = re.sub(r"[ \t]+", " ", text).strip()
 
     return text

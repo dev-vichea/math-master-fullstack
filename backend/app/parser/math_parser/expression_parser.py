@@ -50,8 +50,11 @@ class ParsedMath:
 def _clean_latex_text(text: str) -> str:
     """Normalize LaTeX notation, strip trailing spacing artifacts and clean functions."""
     t = text.strip()
+    # Normalize unicode integrals
+    t = t.replace("∫", r"\int ").replace("∬", r"\iint ").replace("∭", r"\iiint ")
     t = t.replace("{(}", "(").replace("{)}", ")")
     t = t.replace("{[}", "[").replace("{]}", "]")
+    t = re.sub(r"[។៕]", " ", t)
     t = re.sub(r"\\underline\{\s*\{*\s*=\s*\}*\s*\}", "=", t)
     t = re.sub(r"([+\-=])\{\s*(\\frac\{[^{}]*\}\{[^{}]*\})\s*\}", r"\1\2", t)
     # Strip leading label prefix like \mathcal{Q}. or 2. or a. or (a) before a formula
@@ -107,6 +110,9 @@ def _clean_latex_text(text: str) -> str:
     if "lim_{" in t and r"\lim_{" not in t:
         t = t.replace("lim_{", r"\lim_{")
 
+    # Ensure int without backslash has backslash if followed by bounds or space
+    t = re.sub(r"(?<!\\)\bint(?=[_\{ ])", r"\\int", t)
+
     # Ensure integral single-char bounds have curly braces for latex2sympy2: \int_1^e -> \int_{1}^{e}
     t = re.sub(r"\\int_([a-zA-Z0-9])", lambda m: r"\int_{" + m.group(1) + r"}", t)
     t = re.sub(
@@ -114,6 +120,9 @@ def _clean_latex_text(text: str) -> str:
         lambda m: m.group(1) + r"^{" + m.group(2) + r"}",
         t,
     )
+
+    # Ensure spacing before differential: e.g. 3xdx -> 3x dx
+    t = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(d[xyzut]\b)", r" \1", t)
     return t
 
 
@@ -229,8 +238,23 @@ def parse_math_text(raw_expression: str) -> ParsedMath:
                 pass
         raise ExpressionParseError(f"Expression contains multiple equals signs: {raw_expression!r}")
 
+    # Normalize unicode integrals and strip Khmer punctuation
+    text = text.replace("∫", r"\int ").replace("∬", r"\iint ").replace("∭", r"\iiint ")
+    text = re.sub(r"[។៕]", " ", text).strip()
+
+    # If the expression does not contain '=' or '\int', but ends with differential 'd[xyzut]',
+    # prepend '\int ' so it is parsed as an integral rather than implicit multiplication (e.g. 3*d*x**2)
+    if "=" not in text and r"\int" not in text and re.search(r"(?:^|[\s+\-*/\(\[\{])d[xyzut]\b\s*$", text):
+        text = r"\int " + text
+
     # If the expression uses LaTeX notation, attempt LaTeX parsing first
-    is_latex = "\\" in text or ("{" in text and "}" in text) or "lim" in text.lower()
+    is_latex = (
+        "\\" in text
+        or ("{" in text and "}" in text)
+        or "lim" in text.lower()
+        or r"\int" in text
+        or "int_" in text
+    )
 
     if is_latex and LATEX2SYMPY_AVAILABLE:
         try:

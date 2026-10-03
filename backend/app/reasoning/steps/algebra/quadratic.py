@@ -54,7 +54,7 @@ class QuadraticStepGenerator(StepGenerator):
                 order=order,
                 description_km="សមីការដើម៖",
                 description_en="Original equation:",
-                expression=f"{lhs} = {rhs}",
+                expression=f"{sympy.latex(lhs)} = {sympy.latex(rhs)}",
             )
         )
         order += 1
@@ -67,7 +67,7 @@ class QuadraticStepGenerator(StepGenerator):
                     order=order,
                     description_km="ផ្លាស់ទីទាំងអស់មកខាងឆ្វេងដើម្បីទទួលបានទម្រង់ស្តង់ដារ៖",
                     description_en="Move all terms to the left to get standard form:",
-                    expression=f"{standard_lhs} = 0",
+                    expression=f"{sympy.latex(standard_lhs)} = 0",
                 )
             )
             order += 1
@@ -94,7 +94,7 @@ class QuadraticStepGenerator(StepGenerator):
                 order=order,
                 description_km="គណនា​ឌីស្ក្រីមីណង់ Δ = b² - 4ac:",
                 description_en="Calculate discriminant Δ = b² - 4ac:",
-                expression=f"Δ = ({_format_number(b)})² - 4({_format_number(a)})({_format_number(c)}) = {_format_number(discriminant)}",
+                expression=f"\\Delta = ({_format_number(b)})^2 - 4({_format_number(a)})({_format_number(c)}) = {_format_number(discriminant)}",
             )
         )
         order += 1
@@ -107,7 +107,7 @@ class QuadraticStepGenerator(StepGenerator):
                     order=order,
                     description_km="ដោយសារ Δ > 0, មានដំណោះស្រាយពីរផ្សេងគ្នា។ ប្រើរូបមន្តក្វាដ្រាទិក៖",
                     description_en="Since Δ > 0, there are two distinct real solutions. Using the quadratic formula:",
-                    expression=f"{symbol} = (-b ± √Δ) / (2a)",
+                    expression=f"{symbol} = \\frac{{-b \\pm \\sqrt{{\\Delta}}}}{{2a}}",
                 )
             )
             order += 1
@@ -122,7 +122,7 @@ class QuadraticStepGenerator(StepGenerator):
                     order=order,
                     description_km=f"ចម្លើយ៖ {symbol} = {_format_number(root1)} ឬ {symbol} = {_format_number(root2)}",
                     description_en=f"Answer: {symbol} = {_format_number(root1)} or {symbol} = {_format_number(root2)}",
-                    expression=f"{symbol} = {_format_number(root1)}, {_format_number(root2)}",
+                    expression=f"{symbol} = {sympy.latex(root1)}, \\; {symbol} = {sympy.latex(root2)}",
                 )
             )
 
@@ -133,7 +133,7 @@ class QuadraticStepGenerator(StepGenerator):
                     order=order,
                     description_km="ដោយសារ Δ = 0, មានដំណោះស្រាយតែមួយ (ឫសស្រីឡើងវិញ)។ ប្រើរូបមន្តក្វាដ្រាទិក៖",
                     description_en="Since Δ = 0, there is one repeated solution. Using the quadratic formula:",
-                    expression=f"{symbol} = -b / (2a)",
+                    expression=f"{symbol} = -\\frac{{b}}{{2a}}",
                 )
             )
             order += 1

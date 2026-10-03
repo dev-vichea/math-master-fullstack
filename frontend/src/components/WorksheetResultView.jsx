@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import MathView from './MathView';
+import RichMathText from './RichMathText';
 import SolutionView from './SolutionView';
 import { FileText, CheckCircle, ListOrdered, ChevronRight } from 'lucide-react';
 
@@ -32,7 +33,9 @@ export default function WorksheetResultView({ data, lang = 'km' }) {
         {exercise.instruction && (
           <div className="ws-instruction-box">
             <span className="ws-inst-label">ការណែនាំ (Instruction):</span>
-            <span className="ws-inst-text">{exercise.instruction}</span>
+            <span className="ws-inst-text">
+              <RichMathText text={exercise.instruction} />
+            </span>
           </div>
         )}
 

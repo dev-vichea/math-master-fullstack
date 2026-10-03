@@ -34,9 +34,9 @@ def _format_number(value: sympy.Expr) -> str:
     # Try to simplify to a nice fraction or radical
     try:
         simplified = nsimplify(value, rational=False)
-        return str(simplified)
+        return sympy.latex(simplified)
     except Exception:
-        return str(value)
+        return sympy.latex(value)
 
 
 def _is_real(value: sympy.Expr) -> bool:
@@ -62,7 +62,7 @@ class PolynomialStepGenerator(StepGenerator):
                 order=order,
                 description_km="សមីការដើម៖",
                 description_en="Original equation:",
-                expression=f"{lhs} = {rhs}",
+                expression=f"{sympy.latex(lhs)} = {sympy.latex(rhs)}",
             )
         )
         order += 1
@@ -75,7 +75,7 @@ class PolynomialStepGenerator(StepGenerator):
                     order=order,
                     description_km="ផ្លាស់ទីទាំងអស់មកខាងឆ្វេងដើម្បីទទួលបានទម្រង់ស្តង់ដារ៖",
                     description_en="Move all terms to the left to get standard form:",
-                    expression=f"{standard_lhs} = 0",
+                    expression=f"{sympy.latex(standard_lhs)} = 0",
                 )
             )
             order += 1
@@ -106,7 +106,7 @@ class PolynomialStepGenerator(StepGenerator):
                     order=order,
                     description_km="កត្តា (factor) ពហុធា៖",
                     description_en="Factor the polynomial:",
-                    expression=f"{factored} = 0",
+                    expression=f"{sympy.latex(factored)} = 0",
                 )
             )
             order += 1

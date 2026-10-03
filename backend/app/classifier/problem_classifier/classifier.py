@@ -11,7 +11,7 @@ maintaining backward compatibility with existing code.
 from __future__ import annotations
 
 import sympy
-from sympy import Eq, Limit, Poly
+from sympy import Derivative, Eq, Integral, Limit, Poly
 
 from app.parser.math_parser.expression_parser import ParsedMath
 
@@ -71,6 +71,20 @@ def classify_problem(parsed: ParsedMath) -> str:
         return "calculus_limit"
     if isinstance(expr, Eq) and (isinstance(expr.rhs, Limit) or isinstance(expr.lhs, Limit)):
         return "calculus_limit"
+
+    # Check if it's a calculus integral
+    if (
+        isinstance(expr, Integral)
+        or (isinstance(expr, Eq) and (isinstance(expr.rhs, Integral) or isinstance(expr.lhs, Integral)))
+        or (hasattr(parsed, "raw_text") and any(k in str(parsed.raw_text) for k in (r"\int", "∫")))
+    ):
+        return "calculus_integral"
+
+    # Check if it's a calculus derivative
+    if isinstance(expr, Derivative) or (
+        isinstance(expr, Eq) and (isinstance(expr.rhs, Derivative) or isinstance(expr.lhs, Derivative))
+    ):
+        return "calculus_derivative"
 
     # Now check equations
     if not parsed.is_equation:

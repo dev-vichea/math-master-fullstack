@@ -37,7 +37,11 @@ _HEADER_RE = re.compile(
 # Instructions in Khmer and English
 _INSTRUCTION_RE = re.compile(
     r"(?i)(?:"
-    r"(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?limits?(?:\s+of)?(?:\s+the\s+following)?"
+    r"(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?(?:definite\s+|indefinite\s+)?integrals?(?:\s+of)?(?:\s+the\s+following)?"
+    r"|(?:Find|Calculate|Evaluate|Compute)\s+(?:the\s+)?antiderivatives?(?:\s+of)?(?:\s+the\s+following)?(?:\s+functions?)?"
+    r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?(?:នៃ)?អាំងតេក្រាល(?:មិនកំណត់|កំណត់)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
+    r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?ព្រីមីទីវ(?:នៃអនុគមន៍)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
+    r"|(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?limits?(?:\s+of)?(?:\s+the\s+following)?"
     r"|(?:Find|Calculate|Evaluate|Compute|Determine|Differentiate)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?derivatives?(?:\s+of)?(?:\s+the\s+following)?(?:\s+functions?)?"
     r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?(?:នៃ)?ដេរីវេ(?:នៃអនុគមន៍)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
     r"|Find\s+(?:the\s+)?value\s+of\s+[a-zA-Z]\s*(?:if|in|when|where|:)?"
@@ -194,8 +198,11 @@ def _extract_single_math_expression(text: str) -> str | None:
     pool = with_digits or candidates
 
     best = max(pool, key=len).strip()
-    if "\\" in best or "{" in best:
+    has_differential = bool(re.search(r"\b(d[xyzut])\b", best))
+    if "\\" in best or "{" in best or has_differential:
         best = re.sub(r"\s+", " ", best).strip()
+        if has_differential:
+            best = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(d[xyzut]\b)", r" \1", best)
     else:
         best = re.sub(r"\s+", "", best)
 
@@ -203,9 +210,10 @@ def _extract_single_math_expression(text: str) -> str | None:
     best = _LEADING_LABEL_RE.sub("", best)
 
     # Clean leading/trailing stray punctuation (preserve leading \ for LaTeX commands like \frac, \sqrt)
-    best = best.strip(".:;=, ")
+    # Also strip Khmer punctuation marks '។' (\u17d4) and '៕' (\u17d5)
+    best = best.strip(".:;=, \u17d4\u17d5")
     while best.endswith("\\"):
-        best = best[:-1].rstrip(".:;=, ")
+        best = best[:-1].rstrip(".:;=, \u17d4\u17d5")
     return best or None
 
 

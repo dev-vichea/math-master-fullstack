@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import MathView from './MathView';
+import RichMathText from './RichMathText';
 import confetti from 'canvas-confetti';
 import {
   CheckCircle2,
@@ -174,7 +175,9 @@ export default function SolutionView({ solution, lang = 'km' }) {
                   <div className="step-card-header" onClick={() => toggleStep(idx)}>
                     <div className="step-order-badge">{step.order || idx + 1}</div>
                     <div className="step-header-text">
-                      <span className="step-title">{stepTitle}</span>
+                      <span className="step-title">
+                        <RichMathText text={stepTitle} />
+                      </span>
                       {step.rule_formula && (
                         <span className="step-formula-mini">
                           <MathView math={step.rule_formula} />
@@ -193,14 +196,20 @@ export default function SolutionView({ solution, lang = 'km' }) {
                           <MathView math={step.expression} block />
                         </div>
                       )}
-                      {stepDesc && <p className="step-description">{stepDesc}</p>}
+                      {stepDesc && (
+                        <p className="step-description">
+                          <RichMathText text={stepDesc} />
+                        </p>
+                      )}
 
                       {rationale && (
                         <div className="step-rationale-box">
                           <HelpCircle size={14} className="rationale-icon" />
                           <div className="rationale-text">
                             <strong>ហេតុអ្វី: </strong>
-                            <span>{rationale}</span>
+                            <span>
+                              <RichMathText text={rationale} />
+                            </span>
                           </div>
                         </div>
                       )}

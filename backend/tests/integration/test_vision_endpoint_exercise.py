@@ -81,9 +81,20 @@ def test_vision_endpoint_khmer_exercise_with_subitems():
 
 def test_vision_endpoint_sample2_quadratic_equation():
     """Test that sample2.png with x^2 - 25x + 15 = 0 is solved as quadratic equation."""
+    from pathlib import Path
     client = TestClient(app)
 
-    with open("frontend/samples/sample2.png", "rb") as f:
+    candidates = [
+        Path("frontend/samples/sample2.png"),
+        Path(__file__).resolve().parent.parent.parent / "frontend" / "samples" / "sample2.png",
+        Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "samples" / "sample2.png",
+        Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "samples" / "sample2.png",
+    ]
+    sample_file = next((p for p in candidates if p.exists()), None)
+    if not sample_file:
+        pytest.skip("sample2.png fixture not found")
+
+    with open(sample_file, "rb") as f:
         img_bytes = f.read()
 
     fake_file = ("sample2.png", BytesIO(img_bytes), "image/png")

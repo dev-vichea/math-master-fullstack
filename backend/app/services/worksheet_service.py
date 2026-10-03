@@ -19,8 +19,11 @@ from app.core.tasks import TaskStatus, get_task, submit_task, update_task_progre
 from app.ocr.engines.base import MathVisionEngine, VisionResult
 from app.ocr.factory import create_vision_engine
 
+from sympy import Integral
+
 logger = get_logger("app.services.worksheet")
 from app.models.document import Exercise, Problem
+from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
 from app.parser.math_parser.expression_parser import ExpressionParseError, parse_math_text
 from app.services.exercise_service import ExerciseService, ProcessingResult
 from app.services.math_service import MathService
@@ -189,7 +192,8 @@ class WorksheetProcessor:
 
         # Step 2: Parse exercise structure
         try:
-            processing_result = self.exercise_service.process_text(ocr_result.detected_text)
+            detected_text = sanitize_ocr_math_text(ocr_result.detected_text)
+            processing_result = self.exercise_service.process_text(detected_text)
             exercise = processing_result.exercise
         except Exception as e:
             # Parsing failed - return error
@@ -238,6 +242,8 @@ class WorksheetProcessor:
         """
         label = problem.label if problem.label else "Unknown"
         expression = problem.problem.expression or problem.problem.raw_input
+        if expression:
+            expression = sanitize_ocr_math_text(expression)
         relationships: list[str] = list(getattr(problem, "relationships", []))
         context_dict = dict(getattr(problem, "context", {}))
         if not context_dict and section and getattr(section, "given_variables", None):
@@ -285,7 +291,13 @@ class WorksheetProcessor:
         # 3. Classify problem type with instruction context
         section_instruction = section.instruction if section else None
         try:
-            if section_instruction and problem.instruction_context:
+            if (
+                isinstance(parsed.sympy_expr, Integral)
+                or (hasattr(parsed, "raw_text") and any(k in str(parsed.raw_text) for k in (r"\int", "∫")))
+                or any(k in expression for k in (r"\int", "∫"))
+            ):
+                problem_type = "calculus_integral"
+            elif section_instruction and problem.instruction_context:
                 classification = self.context_classifier.classify(
                     parsed, instruction=problem.instruction_context
                 )

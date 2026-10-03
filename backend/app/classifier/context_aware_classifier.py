@@ -79,6 +79,9 @@ class ContextAwareClassifier:
         InstructionType.DERIVATIVE: [
             "calculus_derivative",
         ],
+        InstructionType.INTEGRAL: [
+            "calculus_integral",
+        ],
         InstructionType.CONVERGENCE: [
             "sequence_convergence",
             "sequence",

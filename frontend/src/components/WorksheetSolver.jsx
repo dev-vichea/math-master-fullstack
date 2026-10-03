@@ -3,6 +3,10 @@ import { FileText, Trash2, Play, Layers, ClipboardCheck } from 'lucide-react';
 
 const WORKSHEET_SAMPLES = [
   {
+    label: 'គណនាអាំងតេក្រាល (Definite Integrals: ∫₀² 3x dx, ...)',
+    path: '/samples/worksheet_integrals.png',
+  },
+  {
     label: 'លំហាត់អថេររួម (Shared Context: x = 2 - √3, y = 3 + √3)',
     path: '/samples/worksheet_shared_context.png',
   },

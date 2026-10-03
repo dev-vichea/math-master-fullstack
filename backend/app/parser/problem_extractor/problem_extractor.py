@@ -225,7 +225,7 @@ class ProblemExtractor:
         results = []
         for i, (s_idx, e_idx, lbl, l_type) in enumerate(unique):
             next_start = unique[i + 1][0] if i + 1 < len(unique) else len(clean_start)
-            content = clean_start[e_idx:next_start].strip(" .…\t\r\n")
+            content = clean_start[e_idx:next_start].strip(" .…\t\r\n\u17d4\u17d5")
             if content:
                 results.append(
                     ExtractedProblem(

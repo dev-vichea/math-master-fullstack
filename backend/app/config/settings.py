@@ -8,6 +8,7 @@ real server.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import field_validator
@@ -51,7 +52,7 @@ class Settings(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env", str(Path(__file__).resolve().parent.parent.parent / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -189,8 +189,10 @@ class ProblemClassifier:
         ):
             return "calculus_derivative"
 
-        if isinstance(expr, Integral) or (
-            isinstance(expr, Eq) and (isinstance(expr.rhs, Integral) or isinstance(expr.lhs, Integral))
+        if (
+            isinstance(expr, Integral)
+            or (isinstance(expr, Eq) and (isinstance(expr.rhs, Integral) or isinstance(expr.lhs, Integral)))
+            or (hasattr(parsed, "raw_text") and any(k in str(parsed.raw_text) for k in (r"\int", "∫")))
         ):
             return "calculus_integral"
 
