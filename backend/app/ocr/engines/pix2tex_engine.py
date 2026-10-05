@@ -156,12 +156,49 @@ def clean_pix2tex_output(latex_code: str) -> str:
     # Normalize LaTeX spacing tokens like \; \, \! \: \quad \qquad \hfill \vfill
     t = re.sub(r"\\+([;,!:])", " ", t)
     t = re.sub(r"\\(?:quad|qquad|hfill|vfill)", " ", t)
-    # Normalize derivative primes misread as asterisks (e.g. y^* r -> y'', y^* -> y')
+    # Normalize derivative primes misread as asterisks or exponents (e.g. y^* r -> y'', {y}^{\prime +} -> y'' + y, y^{r} -> y'')
+    t = re.sub(r"(?<=[0-9a-zA-Z])\s*\\(?:beta|theta)\s*,?", ", ", t)
+    t = re.sub(r"\\beta\s*,?", ", ", t)
+    def _fix_second_deriv_term(m):
+        g1 = m.group(1)
+        g2 = m.group(2)
+        return f"{g1}'' + {g2}" if g2 else f"{g1}''"
+    t = re.sub(r"\{?([yY])\}?\s*\^\s*\{?\s*(?:\\prime\s*\\prime|\\prime\s*[*r]|[*r]\s*\\prime|\'\s*\'|\*\s*\*|\\prime\s*\,?\s*\\dagger|\\prime\s*\,?\s*\+)\s*\}?\s*(?:\\mp|\+|\s*x\s*)?\s*\{?([yY])\}?", _fix_second_deriv_term, t)
+    t = re.sub(r"=\s*\{\s*\\?\s*([0-9a-zA-Z]+)\s*\}", r"= \1", t)
+    t = re.sub(r"([yY])\^\{?\s*(?:\\prime\s*[*r]|[*r]\s*\\prime)\s*\}?", r"\1''", t)
+    t = re.sub(r"([yY])\^\{?r\}?\s*(?=\()", r"\1'", t)
+    t = re.sub(r"([yY])\^\{?r\}?", r"\1''", t)
     t = re.sub(r"([yY])\^\{?\*\}?\s*r\b", r"\1''", t)
     t = re.sub(r"([yY])\^\{?\*\}?", r"\1'", t)
+    t = re.sub(r"\{?([yY])\}?\s*\^\s*\{?\\(?:dagger|dag)\s*([+\-])\s*([0-9a-zA-Z]+)\s*\}?", r"\1' \2 \3", t)
+    t = re.sub(r"\{?([yY])\}?\s*\^\s*\{?\\(?:dagger|dag)\}?", r"\1'", t)
+    # Fix slashed zero 0 misread as \theta in initial conditions: y(\theta) -> y(0), y'(\theta) -> y'(0)
+    t = re.sub(r"([yY](?:\'|\^\{?\\prime\}?)?\s*\()\s*\\theta\s*(\))", r"\g<1>0\2", t)
+
+    # Fix OCR parentheses misread as equals in initial conditions: y=0=-2 -> y(0)=-2, y=0)=-2 -> y(0)=-2, y0)=-2 -> y(0)=-2
+    t = re.sub(r"([,;]\s*\{?[yY]\}?)\s*[=(]\s*(\d+)\s*[\)=]\s*=\s*([-+]?\d+)", r"\1(\2) = \3", t)
+    t = re.sub(r"([,;]\s*\{?[yY]\}?)\s*(\d+)\)\s*=\s*([-+]?\d+)", r"\1(\2) = \3", t)
+
+    # Normalize operatorname or font commands wrapping variables: \operatorname{y} -> y, \mathrm{y} -> y
+    t = re.sub(r"\\(?:mathrm|operatorname\*?|mathbf)\s*\{\s*([a-zA-Z])\s*\}", r"\1", t)
+    t = re.sub(r"\\operatorname\*?\s*", "", t)
+
+    # Insert missing comma before initial condition y: e.g. = 3 y'(0) -> = 3, y'(0)
+    t = re.sub(r"(?<=\d|\))\s+(?=[yY](?:'|\^\{?\\prime\}?|\())", ", ", t)
+
+    # Normalize duplicate prime in initial conditions (e.g. , y'(0)=1 , y'(0)=3 -> , y(0)=1 , y'(0)=3)
+    t = re.sub(r"([,;]\s*\{?y\}?)'(?=\s*(?:\\left)?\s*\(.*?\)\s*=\s*[^,;]+[,;]\s*\{?y\}?['’])", r"\1", t)
+    # Normalize double prime in initial condition (e.g. , y''(0)=3 -> , y'(0)=3)
+    t = re.sub(r"([,;]\s*\{?y\}?)(?:''|\^\{\\prime\s*\\prime\}?)(?=\s*(?:\\left)?\s*\()", r"\1'", t)
+
+    # Fix accidental duplicate prime in 1st order linear ODE: ay' + by' = 0 -> ay' + by = 0
+    t = re.sub(r"([0-9a-zA-Z\\]*y(?:\'|\^\{?\\prime\}?))(\s*[-+]\s*[0-9a-zA-Z\\]*y)(?:\'|\^\{?\\prime\}?)(?=\s*=)", r"\1\2", t)
+
+    # Auto-close trailing unclosed square root brace (e.g. \sqrt{2 -> \sqrt{2})
+    t = re.sub(r"(\\sqrt\{[0-9a-zA-Z]+)$", r"\1}", t)
 
     # Strip trailing punctuation, Khmer full stops (ฯ), and OCR noise letters like dangling 'i', 'v', 'I', \vdash after formula
-    t = re.sub(r"(?<=\d|\)|\})\s*[\s,;.]*(?:\\\\vdash|\\\\uparrow|[iIvV|ฯ])+$", "", t)
+    t = re.sub(r"(?<=\d|\)|\})\s*[\s,;.]*(?:\\vdash|\\uparrow|[iIvV|\\~ฯ])+$", "", t)
     t = re.sub(r"[\s;.,]+$", "", t)
     # Normalize delimiter sizings like \Biggr), \Bigg], \biggr} into standard brackets
     t = re.sub(r"\\(?:Bigg[lr]?|bigg[lr]?|Big[lr]?|big[lr]?)\s*([()[\]{}|])", r"\1", t)
@@ -207,6 +244,10 @@ def clean_pix2tex_output(latex_code: str) -> str:
     while t.startswith("{") and t.count("{") > t.count("}"):
         t = t[1:].strip()
     while t.endswith("}") and t.count("}") > t.count("{"):
+        t = t[:-1].strip()
+    while t.endswith("{") and t.count("{") > t.count("}"):
+        t = t[:-1].strip()
+    while t.endswith(("{", "\\", "|", "~")) or (t.endswith("}") and t.count("}") > t.count("{")):
         t = t[:-1].strip()
     t = _unwrap_outer_braces(t)
     t = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(d[xyzut]\b)", r" \1", t)

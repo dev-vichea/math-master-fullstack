@@ -95,7 +95,7 @@ class KiriVisionEngine(MathVisionEngine):
 
         # Preprocess image for OCR (CLAHE contrast, upscaling, denoising)
         try:
-            from app.ocr.pipeline.preprocessor import preprocess_image
+            from app.ocr.preprocessing.image_preprocessor import preprocess_image
 
             processed_bytes = preprocess_image(image_bytes, mode="enhanced_grayscale")
         except Exception:
@@ -134,8 +134,8 @@ class KiriVisionEngine(MathVisionEngine):
                 )
 
             # Postprocess math characters and Khmer numerals
-            from app.core.khmer.exercise_parser import parse_exercise
-            from app.ocr.pipeline.postprocessor import sanitize_ocr_math_text
+            from app.parser.exercise_parser.exercise_parser import parse_exercise
+            from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
 
             sanitized_text = sanitize_ocr_math_text(raw_detected_text)
             parsed_exercise = parse_exercise(sanitized_text)

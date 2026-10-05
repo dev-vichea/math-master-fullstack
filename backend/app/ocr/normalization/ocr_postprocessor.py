@@ -233,7 +233,18 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 17. Differential Equation OCR repairs:
     # 17a. Normalize derivative primes, asterisks, dagger, 1-powers: y^*, y^1, y^\dagger -> y'
     text = re.sub(r"\\nonumber\b", "", text)
-    # compound derivative exponents first: y^{*+\zeta} -> y' + y
+    # compound derivative exponents first: y^{*+\zeta} -> y' + y, y^{\prime +}y -> y'' + y, y^{r} -> y''
+    text = re.sub(r"(?<=[0-9a-zA-Z])\s*\\(?:beta|theta)\s*,?", ", ", text)
+    text = re.sub(r"\\beta\s*,?", ", ", text)
+    def _fix_second_deriv_term(m):
+        g1 = m.group(1)
+        g2 = m.group(2)
+        return f"{g1}'' + {g2}" if g2 else f"{g1}''"
+    text = re.sub(r"\{?([yY])\}?\s*\^\s*\{?\s*(?:\\prime\s*\\prime|\\prime\s*[*r]|[*r]\s*\\prime|\'\s*\'|\*\s*\*|\\prime\s*\,?\s*\\dagger|\\prime\s*\,?\s*\+)\s*\}?\s*(?:\\mp|\+|\s*x\s*)?\s*\{?([yY])\}?", _fix_second_deriv_term, text)
+    text = re.sub(r"=\s*\{\s*\\?\s*([0-9a-zA-Z]+)\s*\}", r"= \1", text)
+    text = re.sub(r"([yY])\^\{?\s*(?:\\prime\s*[*r]|[*r]\s*\\prime)\s*\}?", r"\1''", text)
+    text = re.sub(r"([yY])\^\{?r\}?\s*(?=\()", r"\1'", text)
+    text = re.sub(r"([yY])\^\{?r\}?", r"\1''", text)
     text = re.sub(r"y\s*\^\s*\{?\s*(?:\*|\\ast|\'|’)\s*\+\s*(?:\\zeta|\\xi|y|\{y\}|[a-zA-Z])\s*\}?", "y' + y", text)
     # Second derivatives first: y^{\prime\prime}, y^{\prime \prime}, y'', y", y^{\prime ^{\dagger}} -> y''
     text = re.sub(r"\{?y\}?\s*\^\s*\{?\s*\\prime\s*(?:\^\{?\s*\\dagger\}?|\\dagger)\s*\}?", "y''", text)
@@ -250,8 +261,28 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     text = re.sub(r"y\s*[\'’\u2019]", "y'", text)
     # If y' ... y' ... y = 0, first y' should be y''
     text = re.sub(r"(?<![a-zA-Z])y\'(?=\s*[-+]\s*[0-9a-zA-Z\\]*y\'\s*[-+].*?y\s*=)", "y''", text)
-    # Trailing misread Khmer punctuation '។' as 'i', '!', '|', or 'i ' after a digit in initial conditions (e.g. y'(0) = 3 i)
+    # Normalize duplicate prime in initial conditions (e.g. , y'(0)=1 , y'(0)=3 -> , y(0)=1 , y'(0)=3)
+    text = re.sub(r"([,;]\s*\{?y\}?)'(?=\s*(?:\\left)?\s*\(.*?\)\s*=\s*[^,;]+[,;]\s*\{?y\}?['’])", r"\1", text)
+    # Normalize double prime in initial condition (e.g. , y''(0)=3 -> , y'(0)=3)
+    text = re.sub(r"([,;]\s*\{?y\}?)(?:''|\^\{\\prime\s*\\prime\}?)(?=\s*(?:\\left)?\s*\()", r"\1'", text)
+    # Fix OCR parentheses misread as equals in initial conditions: y=0=-2 -> y(0)=-2, y=0)=-2 -> y(0)=-2, y0)=-2 -> y(0)=-2
+    text = re.sub(r"([,;]\s*\{?[yY]\}?)\s*[=(]\s*(\d+)\s*[\)=]\s*=\s*([-+]?\d+)", r"\1(\2) = \3", text)
+    text = re.sub(r"([,;]\s*\{?[yY]\}?)\s*(\d+)\)\s*=\s*([-+]?\d+)", r"\1(\2) = \3", text)
+    # Fix accidental duplicate prime in 1st order linear ODE: ay' + by' = 0 -> ay' + by = 0
+    text = re.sub(r"([0-9a-zA-Z\\]*y\')(\s*[-+]\s*[0-9a-zA-Z\\]*y)\'(?=\s*=)", r"\1\2", text)
+    # Auto-close trailing unclosed square root brace (e.g. \sqrt{2 -> \sqrt{2})
+    text = re.sub(r"(\\sqrt\{[0-9a-zA-Z]+)$", r"\1}", text)
+
+    # Trailing misread Khmer punctuation '។' or \vdash as 'i', '!', '|', etc.
+    text = re.sub(r"(?<=\d|\)|\})\s*[\s,;.]*(?:\\vdash|\\uparrow|[iIvV|\\~ฯ])+$", "", text)
     text = re.sub(r"(y\'?\s*\([^\)]+\)\s*=\s*[-+]?\d+)\s*[i!|។](?=\s*$|\s*[,;\n])", r"\1", text)
+    # Fix slashed zero 0 misread as \theta in initial conditions: y(\theta) -> y(0), y'(\theta) -> y'(0)
+    text = re.sub(r"([yY](?:\'|\^\{?\\prime\}?)?\s*\()\s*\\theta\s*(\))", r"\g<1>0\2", text)
+    # Insert missing comma before initial condition y: e.g. = 3 y'(0) -> = 3, y'(0)
+    text = re.sub(r"(?<=\d|\))\s+(?=[yY](?:'|\^\{?\\prime\}?|\())", ", ", text)
+    # Normalize operatorname or font commands wrapping variables
+    text = re.sub(r"\\(?:mathrm|operatorname\*?|mathbf)\s*\{\s*([a-zA-Z])\s*\}", r"\1", text)
+    text = re.sub(r"\\operatorname\*?\s*", "", text)
     text = re.sub(r"([0-9a-zA-Z\)])\s*v\'", r"\1y'", text)
     text = re.sub(r"\bv\'\b", "y'", text)
     text = re.sub(r"(?<!\\frac)(?<!\})\s*\{y\}", " y", text)

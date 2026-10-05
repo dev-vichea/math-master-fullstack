@@ -26,8 +26,7 @@ from PIL import Image, ImageDraw
 
 from app.ocr.quality.models import CandidateStatus, MathOcrCandidate
 from app.ocr.quality.normalizer import safe_normalize_math
-from app.ocr.quality.preprocessor import generate_preprocessing_variants
-from app.ocr.quality.ranker import rank_and_select_candidates
+from app.ocr.quality.pipeline import MathOcrQualityPipeline
 from app.ocr.quality.validator import check_delimiter_balance, validate_math_candidate
 from app.services.math_service import MathService
 from app.utils.exceptions import MathProcessingError
@@ -141,41 +140,38 @@ class TestMathOcrQualityPipeline:
         assert good_cand.status in (CandidateStatus.VERIFIED, CandidateStatus.NEEDS_REVIEW)
         assert good_cand.is_parseable is True
 
-    # 11. Multiple OCR candidates generation
-    def test_multiple_ocr_candidates_generation(self):
-        img_bytes = create_synthetic_math_image_bytes()
-        variants = generate_preprocessing_variants(img_bytes)
-        assert len(variants) >= 2
-        variant_names = [v["variant_name"] for v in variants]
-        assert "original" in variant_names
+    # 11. Single-pass OCR pipeline processing
+    def test_single_pass_pipeline_processing(self):
+        class MockEngine:
+            name = "mock_formula"
+            def detect(self, img_bytes):
+                from app.ocr.engines.base import VisionResult
+                return VisionResult(detected_text=r"\frac{1}{2}", confidence=0.92, error_message=None)
 
-    # 12. Candidate ranking prioritization
-    def test_candidate_ranking_prioritization(self):
-        bad_candidate = MathOcrCandidate(
+        pipeline = MathOcrQualityPipeline(formula_engine=MockEngine())
+        img_bytes = create_synthetic_math_image_bytes()
+        res = pipeline.process_image(img_bytes)
+        assert res.selected_candidate.normalized_math_text == r"\frac{1}{2}"
+        assert res.status == CandidateStatus.VERIFIED
+        assert res.confidence == 0.92
+        assert len(res.all_candidates) == 1
+
+    # 12. Candidate scoring and verification
+    def test_candidate_scoring_and_verification(self):
+        bad_candidate = validate_math_candidate(
             raw_ocr_text=r"\frac{1}{2",
-            normalized_math_text=r"\frac{1}{2",
-            status=CandidateStatus.INVALID,
             confidence=0.99,  # high confidence, but invalid syntax!
             source_provider="pix2tex",
-            variant_name="original",
-            score=-5.0,
-            is_parseable=False,
         )
-        good_candidate = MathOcrCandidate(
+        good_candidate = validate_math_candidate(
             raw_ocr_text=r"\frac{1}{2}",
-            normalized_math_text=r"\frac{1}{2}",
-            status=CandidateStatus.VERIFIED,
             confidence=0.85,
             source_provider="pix2tex",
-            variant_name="trimmed",
-            score=3.5,
-            is_parseable=True,
         )
 
-        result = rank_and_select_candidates([bad_candidate, good_candidate])
-        # Ranker MUST pick VERIFIED candidate over INVALID even if INVALID had higher engine confidence
-        assert result.selected_candidate.normalized_math_text == r"\frac{1}{2}"
-        assert result.selected_candidate.status == CandidateStatus.VERIFIED
+        assert bad_candidate.status == CandidateStatus.INVALID
+        assert good_candidate.status == CandidateStatus.VERIFIED
+        assert good_candidate.score > bad_candidate.score
 
     # 13. Solver protection rejection
     def test_solver_protection_rejection(self):

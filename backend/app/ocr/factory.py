@@ -73,7 +73,7 @@ def create_vision_engine(provider: str | None = None) -> BaseVisionEngine:
 
             return create_intelligent_router(mode="fallback")  # type: ignore
         except ImportError as e:
-            raise ImportError("Intelligent router requires: app.ocr.extraction.router module") from e
+            raise ImportError("Intelligent router requires: app.ocr.pipeline.router module") from e
 
     # Handle ensemble configuration
     if provider.startswith("ensemble:"):
@@ -90,7 +90,7 @@ def create_vision_engine(provider: str | None = None) -> BaseVisionEngine:
             else:
                 raise ValueError("Invalid ensemble format. Use: ensemble:strategy:providers")
         except ImportError as e:
-            raise ImportError("Ensemble provider requires: app.ocr.extraction.ensemble module") from e
+            raise ImportError("Ensemble provider requires: app.ocr.pipeline.ensemble module") from e
 
     if provider == "stub":
         return NotImplementedVisionEngine()

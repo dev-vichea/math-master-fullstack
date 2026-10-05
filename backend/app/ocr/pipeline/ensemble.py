@@ -17,7 +17,7 @@ from app.core.logging import get_logger
 from app.ocr.engines.base import MathVisionEngine, VisionResult
 from app.ocr.factory import create_vision_engine
 
-logger = get_logger("app.ocr.extraction.ensemble")
+logger = get_logger("app.ocr.pipeline.ensemble")
 
 
 class OCREnsemble:

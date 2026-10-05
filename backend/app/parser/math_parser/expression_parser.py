@@ -302,12 +302,27 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
             text = text[: m_dom.start()] + text[m_dom.end() :]
             text = text.strip()
 
-        # 2. Extract initial conditions (e.g. , y(1) = 4 or , y'(0) = 2)
+        # 2. Standardize derivatives and clean notation before extracting initial conditions
+        text = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}", "y'", text)
+        text = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}\s*y", "y'", text)
+        text = text.replace("’", "'").replace("‘", "'")
+        text = re.sub(r"y\^\{\\prime\s*\\prime\}|y\\prime\\prime", "y''", text)
+        text = re.sub(r"y\^\{\\prime\}|y\\prime", "y'", text)
+        text = re.sub(r"(?<!\\frac)(?<!\})\s*\{y\}", "y", text)
+        text = re.sub(r"=\s*\{\s*\\?\s*([0-9a-zA-Z]+)\s*\}", r"= \1", text)
+        # Normalize duplicate prime in initial conditions (e.g. , y'(0)=1 , y'(0)=3 -> , y(0)=1 , y'(0)=3)
+        text = re.sub(r"([,;]\s*\{?y\}?)'(?=\s*(?:\\left)?\s*\(.*?\)\s*=\s*[^,;]+[,;]\s*\{?y\}?['’])", r"\1", text)
+        # Normalize double prime in initial condition (e.g. , y''(0)=3 -> , y'(0)=3)
+        text = re.sub(r"([,;]\s*\{?y\}?)(?:''|\^\{\\prime\s*\\prime\}?)(?=\s*(?:\\left)?\s*\()", r"\1'", text)
+        # Fix OCR parentheses misread as equals in initial conditions: y=0=-2 -> y(0)=-2, y=0)=-2 -> y(0)=-2, y0)=-2 -> y(0)=-2
+        text = re.sub(r"([,;]\s*\{?[yY]\}?)\s*[=(]\s*(\d+)\s*[\)=]\s*=\s*([-+]?\d+)", r"\1(\2) = \3", text)
+        text = re.sub(r"([,;]\s*\{?[yY]\}?)\s*(\d+)\)\s*=\s*([-+]?\d+)", r"\1(\2) = \3", text)
+
         ics_tuple = None
         ics_prime_tuple = None
 
         m_ic_prime = re.search(
-            r"[,;]\s*\{?y\}?[\'’]\s*\((.*?)\)\s*=\s*([^,;]+)",
+            r"[,;]\s*\{?y\}?[\'’]\s*(?:\\left)?\s*\((.*?)\)\s*(?:\\right)?\s*=\s*([^,;]+)",
             text,
         )
         if m_ic_prime:
@@ -324,7 +339,7 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
             ics_prime_tuple = (x1_sp, y1_sp)
 
         m_ics = re.search(
-            r"[,;]\s*\{?y\}?\s*\((.*?)\)\s*=\s*([^,;]+)",
+            r"[,;]\s*\{?y\}?\s*(?:\\left)?\s*\((.*?)\)\s*(?:\\right)?\s*=\s*([^,;]+)",
             text,
         )
         if m_ics:

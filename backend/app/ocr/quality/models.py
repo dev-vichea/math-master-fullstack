@@ -32,6 +32,7 @@ class MathOcrCandidate(BaseModel):
     detected_suffix: str | None = Field(default=None, description="Extracted non-math suffix")
     is_parseable: bool = Field(default=False, description="Whether SymPy can successfully parse the expression")
     problem_type: str | None = Field(default=None, description="Detected math classification if parseable")
+    exercise_metadata: dict[str, Any] | None = Field(default=None, description="Optional exercise metadata (title, instruction, sub_exercises)")
 
 
 class OcrPipelineResult(BaseModel):

@@ -92,7 +92,11 @@ def get_vision_service(
     math_service: MathService = Depends(get_math_service),
 ) -> VisionService:
     """Dependency provider for VisionService with proper injection."""
-    return VisionService(vision_engine=vision_engine, math_service=math_service)
+    return VisionService(
+        vision_engine=vision_engine,
+        math_service=math_service,
+        use_document_pipeline=False,
+    )
 
 
 @router.post("/math/ocr", response_model=APIResponse, tags=["vision"])

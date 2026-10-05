@@ -1,13 +1,25 @@
 """
-OCR Normalization - Postprocessing and error correction.
+OCR normalization package.
 
-Handles:
-- LaTeX normalization (\frac, \\operatorname, etc.)
-- Common OCR errors (O→0, l→1, etc.)
-- Operator standardization
-- Whitespace cleanup
+Consolidated normalization system for math text.
 """
 
-from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
+from app.ocr.normalization.canonical_normalizer import (
+    NormalizationResult,
+    khmer_digits_to_arabic,
+    normalize_math_text,
+    repair_ocr_artifacts,
+    safe_normalize_math,
+    sanitize_ocr_math_text,
+    structural_normalize,
+)
 
-__all__ = ["sanitize_ocr_math_text"]
+__all__ = [
+    "NormalizationResult",
+    "khmer_digits_to_arabic",
+    "normalize_math_text",
+    "repair_ocr_artifacts",
+    "safe_normalize_math",
+    "sanitize_ocr_math_text",
+    "structural_normalize",
+]

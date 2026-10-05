@@ -14,6 +14,14 @@ sys.path.insert(0, "backend")
 from app.main import app
 from app.ocr.engines.pix2tex_engine import Pix2TexVisionEngine
 from app.api.v1.endpoints.vision import get_vision_engine
+from app.core.cache import get_solve_cache
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_fixture():
+    get_solve_cache().clear()
+    yield
+    get_solve_cache().clear()
 
 
 def test_api_health():
@@ -109,7 +117,7 @@ def test_api_vision_differential_crops():
             data = res.json()
             assert data["success"] is True, f"Failed for {crop_name}: {data}"
             assert "answer" in data["data"]
-            assert len(data["data"]["steps"]) > 0
+            assert len(data["data"]["steps"]) > 0, f"No steps for {crop_name}: {data}"
 
     app.dependency_overrides.clear()
 
@@ -228,7 +236,7 @@ def test_api_vision_image7_exercises():
             assert res.status_code == 200
             data = res.json()
             assert data["success"] is True, f"Failed for {crop_name}: {data}"
-            assert expected_ans in data["data"]["answer"]
+            assert expected_ans in data["data"]["answer"], f"Failed answer for {crop_name}: {data}"
             assert len(data["data"]["steps"]) == 5
 
     app.dependency_overrides.clear()

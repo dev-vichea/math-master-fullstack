@@ -1,18 +1,19 @@
 """
-OCR Pipeline — Processing stages for OCR results.
+OCR pipeline package.
 
-Stages:
-- preprocessor: Image cleanup and enhancement before OCR
-- postprocessor: Text correction and normalization after OCR
-- ensemble: Multi-engine voting for higher accuracy
-- router: Intelligent engine selection based on input characteristics
-- cache: OCR result caching to avoid redundant processing
+Contains the canonical document processing pipeline and related components.
 """
 
-from app.ocr.pipeline.cache import CachedOCREngine
-from app.ocr.pipeline.ensemble import create_ocr_ensemble
+from app.ocr.pipeline.document_pipeline import (
+    DocumentPipelineResult,
+    MathDocumentPipeline,
+    ProcessingStatus,
+    RegionOcrResult,
+)
 
 __all__ = [
-    "CachedOCREngine",
-    "create_ocr_ensemble",
+    "DocumentPipelineResult",
+    "MathDocumentPipeline",
+    "ProcessingStatus",
+    "RegionOcrResult",
 ]

@@ -19,7 +19,7 @@ from typing import Any
 from app.core.logging import get_logger
 from app.ocr.engines.base import MathVisionEngine, VisionResult
 
-logger = get_logger("app.ocr.extraction.cache")
+logger = get_logger("app.ocr.pipeline.cache")
 
 
 class CachedOCREngine(MathVisionEngine):
