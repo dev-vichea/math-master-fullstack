@@ -77,11 +77,25 @@ def _clean_latex_text(text: str) -> str:
     # Convert sqrt(...) to \sqrt{...}
     t = re.sub(r"(?:\\)?sqrt\(([^)]+)\)", r"\\sqrt{\1}", t)
 
-    # Convert ASCII limits like 'lim x->0 expr', 'lim_{x->0} expr', 'limit x->0' to '\lim_{x \to 0} expr'
-    ascii_lim_pat = re.compile(
-        r"(?i)(?:\\\\|\\|/)*lim(?:it)?\s*(?:_\{?|\s+)\s*([a-zA-Z])\s*(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\\to|\bto\b)\s*([0-9+\-a-zA-Z]+|\\[a-zA-Z]+)\}?"
+    # Normalize limits with curly braces (e.g. \lim_{x\to\frac{\pi}{3}} or lim_{x -> 0})
+    def _normalize_lim_braces(m):
+        content = m.group(1)
+        content = re.sub(r"(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\bto\b)", lambda _: r"\to", content)
+        content = (
+            content.replace(r"\\to", r"\to")
+            .replace(r"\\pi", r"\pi")
+            .replace(r"\\frac", r"\frac")
+        )
+        return rf"\lim_{{{content}}} "
+
+    t = re.sub(r"\\?lim(?:it)?_\{((?:[^{}]|\{[^{}]*\})+)\}", _normalize_lim_braces, t)
+
+    # Convert unbraced ASCII limits like 'lim x->0 expr', 'limit x->0 expr'
+    t = re.sub(
+        r"(?i)(?<![\\a-zA-Z])lim(?:it)?\s+([a-zA-Z])\s*(?:->|\\to|\bto\b)\s*([^\s,;]+)",
+        lambda m: rf"\lim_{{{m.group(1)} \to {m.group(2)}}} ",
+        t,
     )
-    t = ascii_lim_pat.sub(lambda m: rf"\lim_{{{m.group(1)} \to {m.group(2)}}} ", t)
 
     # Ensure math functions in LaTeX have leading backslash if missing
     func_pat = re.compile(r"(?<![\\\\a-zA-Z])(sin|cos|tan|cot|sec|csc|ln|log|exp)\b")
@@ -90,6 +104,13 @@ def _clean_latex_text(text: str) -> str:
     # Ensure lim_{ has leading backslash if missing
     if "lim_{" in t and r"\lim_{" not in t:
         t = t.replace("lim_{", r"\lim_{")
+
+    t = (
+        t.replace(r"\\to", r"\to")
+        .replace(r"\\pi", r"\pi")
+        .replace(r"\\frac", r"\frac")
+        .replace(r"\\lim", r"\lim")
+    )
     return t
 
 

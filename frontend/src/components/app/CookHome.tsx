@@ -1,5 +1,5 @@
 import { useNavigate, Link } from "@tanstack/react-router";
-import { ArrowRight, Camera, Keyboard, CheckCircle2, Loader2, X } from "lucide-react";
+import { ArrowRight, Camera, Keyboard, CheckCircle2, Loader2, X, AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { mcButton, Reveal } from "@/components/mathcook/primitives";
 import { COOKS, submitProblem, extractMathFromImage } from "@/lib/mathcook/data";
@@ -261,9 +261,19 @@ export function CookHome() {
   const [instruction, setInstruction] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [mathValue, setMathValue] = useState("");
+  const [ocrStatus, setOcrStatus] = useState<"VERIFIED" | "NEEDS_REVIEW" | "INVALID" | null>(null);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [detectedPrefix, setDetectedPrefix] = useState<string | null>(null);
+  const [rawDetectedText, setRawDetectedText] = useState<string | null>(null);
+  const [validationIssues, setValidationIssues] = useState<string[]>([]);
+  const [showDebugOcr, setShowDebugOcr] = useState(false);
   const mathFieldRef = useRef<MathLiveFieldRef>(null);
 
   const start = async (input: string | File) => {
+    if (ocrStatus === "INVALID" && typeof input === "string") {
+      toast.error("Formula syntax appears invalid. Please edit before cooking.");
+      return;
+    }
     const mvk = typeof window !== "undefined" ? (window as any).mathVirtualKeyboard : null;
     if (mvk?.visible) {
       mvk.hide({ animate: false });
@@ -288,12 +298,24 @@ export function CookHome() {
       if (result.instruction) {
         setInstruction(result.instruction);
       }
+      setOcrStatus(result.status);
+      setOcrConfidence(result.confidence || null);
+      setDetectedPrefix(result.detectedPrefix || null);
+      setRawDetectedText(result.detectedText || null);
+      setValidationIssues(result.validationIssues || []);
+
       const rawMath = result.expression || result.detectedText || "";
       const mathExpr = cleanMinimalMath(rawMath);
       if (mathExpr) {
         setMathValue(mathExpr);
         mathFieldRef.current?.setValue(mathExpr);
-        toast.success("Math formula extracted!");
+        if (result.status === "VERIFIED") {
+          toast.success("Math formula verified and ready to cook!");
+        } else if (result.status === "NEEDS_REVIEW") {
+          toast.warning("Math extracted with review warning. Please verify formula below.");
+        } else {
+          toast.error("Formula may have syntax issues. Please review and edit.");
+        }
         setTimeout(() => {
           mathFieldRef.current?.focus();
         }, 150);
@@ -314,6 +336,12 @@ export function CookHome() {
     setImagePreview(null);
     setFileName(null);
     setInstruction(null);
+    setOcrStatus(null);
+    setOcrConfidence(null);
+    setDetectedPrefix(null);
+    setRawDetectedText(null);
+    setValidationIssues([]);
+    setShowDebugOcr(false);
     setScanning(false);
   };
 
@@ -408,9 +436,105 @@ export function CookHome() {
           </button>
         </div>
 
+        {/* OCR Status & Quality Indicator */}
+        {ocrStatus && (
+          <div className="mb-4 text-left animate-in fade-in slide-in-from-top-2 duration-300">
+            {ocrStatus === "VERIFIED" && (
+              <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/25 px-4 py-2.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>
+                    Verified Math Formula ({Math.round((ocrConfidence || 0.95) * 100)}% confidence)
+                  </span>
+                </div>
+                {rawDetectedText && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDebugOcr(!showDebugOcr)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-200 hover:underline"
+                  >
+                    <span>OCR Debug</span>
+                    {showDebugOcr ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {ocrStatus === "NEEDS_REVIEW" && (
+              <div className="flex flex-col gap-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-800 dark:text-amber-200">
+                <div className="flex items-center justify-between font-bold">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>
+                      Needs Review: {detectedPrefix ? `Extracted prefix '${detectedPrefix}'. ` : ""}
+                      Please check the formula below before cooking.
+                    </span>
+                  </div>
+                  {rawDetectedText && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDebugOcr(!showDebugOcr)}
+                      className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:underline shrink-0"
+                    >
+                      <span>OCR Debug</span>
+                      {showDebugOcr ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                </div>
+                {validationIssues.length > 0 && (
+                  <div className="text-[11px] font-normal text-amber-700/80 dark:text-amber-300/80 pl-6">
+                    {validationIssues.join(" · ")}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ocrStatus === "INVALID" && (
+              <div className="flex flex-col gap-1.5 rounded-2xl bg-red-500/10 border border-red-500/30 p-3.5 text-xs text-red-800 dark:text-red-200">
+                <div className="flex items-center justify-between font-bold">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+                    <span>
+                      Invalid Math Syntax: Please edit the formula directly in the field before cooking.
+                    </span>
+                  </div>
+                  {rawDetectedText && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDebugOcr(!showDebugOcr)}
+                      className="flex items-center gap-1 text-[11px] font-bold text-red-700 dark:text-red-300 hover:underline shrink-0"
+                    >
+                      <span>OCR Debug</span>
+                      {showDebugOcr ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                </div>
+                {validationIssues.length > 0 && (
+                  <div className="text-[11px] font-normal text-red-700/80 dark:text-red-300/80 pl-6">
+                    {validationIssues.join(" · ")}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Collapsible Raw OCR Debug Info */}
+            {showDebugOcr && rawDetectedText && (
+              <div className="mt-2 rounded-xl bg-card border border-border p-3 text-xs font-mono text-muted-foreground">
+                <div className="font-bold text-foreground mb-1">Raw OCR Output from Model:</div>
+                <div className="break-all bg-muted/60 p-2 rounded">{rawDetectedText}</div>
+              </div>
+            )}
+          </div>
+        )}
+
         <ProblemInput
           value={mathValue}
-          onChange={setMathValue}
+          onChange={(v) => {
+            setMathValue(v);
+            if (ocrStatus === "INVALID" && v.trim()) {
+              setOcrStatus("NEEDS_REVIEW");
+            }
+          }}
           onSubmit={(confirmed) => start(confirmed)}
           mathFieldRef={mathFieldRef}
         />

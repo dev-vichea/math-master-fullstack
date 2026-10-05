@@ -19,6 +19,8 @@ from app.classifier.problem_classifier.intent_classifier import (
 from app.core.cache import get_solve_cache
 from app.core.logging import get_logger
 from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
+from app.ocr.quality import CandidateStatus, safe_normalize_math, validate_math_candidate
+from app.parser.exercise_parser.exercise_parser import _is_valid_math_expression
 from app.parser.expression_parser.khmer_extractor import extract_expression
 from app.parser.expression_parser.khmer_normalizer import normalize_khmer_text
 from app.parser.math_parser.expression_parser import ExpressionParseError, parse_math_text
@@ -42,10 +44,14 @@ class MathService:
         Parses question text, detects intent, extracts raw and normalized math expressions,
         and classifies the problem type without solving.
         """
-        sanitized = sanitize_ocr_math_text(question)
+        norm_math, _, prefix, suffix = safe_normalize_math(question)
+        target_text = norm_math if norm_math and prefix else question
+        sanitized = sanitize_ocr_math_text(target_text)
         normalized_text = normalize_khmer_text(sanitized)
         intent = self.intent_classifier.classify(normalized_text)
         raw_expression = extract_expression(normalized_text)
+        if raw_expression is None and norm_math and _is_valid_math_expression(norm_math):
+            raw_expression = norm_math
 
         if raw_expression is None:
             raise MathProcessingError("No math expression detected.")
@@ -67,17 +73,33 @@ class MathService:
     def process_question(self, question: str) -> SolveData:
         """
         Runs the full end-to-end math pipeline to solve and produce step-by-step output.
+        Protects solver via: OCR -> normalize -> validate -> classify -> solve -> verify -> explain.
         """
-        sanitized = sanitize_ocr_math_text(question)
+        # 1. Deterministic safe normalization and prefix detachment
+        norm_math, norm_warnings, prefix, suffix = safe_normalize_math(question)
+        target_text = norm_math if norm_math and prefix else question
+
+        sanitized = sanitize_ocr_math_text(target_text)
         normalized_text = normalize_khmer_text(sanitized)
         intent = self.intent_classifier.classify(normalized_text)
 
         if intent == MathIntent.UNKNOWN:
-            raise MathProcessingError("Could not detect a math request in the given text.")
+            if norm_math and any(c in norm_math for c in "=+-*/\\^"):
+                intent = MathIntent.EVALUATE_EXPRESSION
+            else:
+                raise MathProcessingError("Could not detect a math request in the given text.")
 
         raw_expression = extract_expression(normalized_text)
+        if raw_expression is None and norm_math and _is_valid_math_expression(norm_math):
+            raw_expression = norm_math
         if raw_expression is None:
             raise MathProcessingError("Could not find a mathematical expression in the given text.")
+
+        # 2. Structural & syntax validation check before reaching the parser
+        validation = validate_math_candidate(raw_expression)
+        if validation.status == CandidateStatus.INVALID and not validation.is_parseable:
+            issues = "; ".join(validation.validation_issues) if validation.validation_issues else "Invalid mathematical syntax"
+            raise MathProcessingError(f"Expression could not be parsed as valid mathematics: {issues}")
 
         try:
             parsed = parse_math_text(raw_expression)

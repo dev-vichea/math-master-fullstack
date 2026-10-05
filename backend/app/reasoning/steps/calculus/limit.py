@@ -32,7 +32,8 @@ def _format_pt_str(pt: Any) -> str:
         return r"\infty"
     if pt == -oo:
         return r"-\infty"
-    return str(pt)
+    s = latex(pt)
+    return s.replace(r"\log", r"\ln")
 
 
 def _to_latex(expr_or_str: Any) -> str:
@@ -42,6 +43,30 @@ def _to_latex(expr_or_str: Any) -> str:
     else:
         s = latex(expr_or_str)
     return s.replace(r"\log", r"\ln")
+
+
+def _clean_latex_expr(expr_or_str: Any) -> str:
+    """Format and clean unsimplified products or LaTeX artifacts."""
+    if not hasattr(expr_or_str, "replace"):
+        return _to_latex(expr_or_str)
+
+    def eval_numbers(e: Any) -> Any:
+        if isinstance(e, sympy.Mul):
+            nums = [a for a in e.args if a.is_number]
+            rest = [a for a in e.args if not a.is_number]
+            if len(nums) > 1:
+                prod = 1
+                for n in nums:
+                    prod = prod * n
+                return sympy.Mul(prod, *rest)
+        return e
+
+    try:
+        cleaned = expr_or_str.replace(lambda x: isinstance(x, sympy.Mul), eval_numbers)
+        s = _to_latex(cleaned)
+    except Exception:
+        s = _to_latex(expr_or_str)
+    return s.replace(r"\left(-1\right) ", "-")
 
 
 def simplify_real_roots(expr: Any) -> Any:
@@ -92,6 +117,9 @@ def detect_limit_method(expr: Limit) -> str:
             )
             if has_radical:
                 return "method_limit_conjugate"
+            has_trig = any(f.has(func) for func in (sympy.sin, sympy.cos, sympy.tan))
+            if has_trig:
+                return "method_limit_trigonometric"
             return "method_limit_factor_cancel"
         elif den_val != 0:
             return "method_limit_direct_substitution"
@@ -143,7 +171,7 @@ class LimitStepGenerator(StepGenerator):
             )
 
         # Step 1: Original Limit
-        orig_latex = f"\\lim_{{{var} \\to {pt_str}}} \\left({_to_latex(f)}\\right)"
+        orig_latex = f"\\lim_{{{var} \\to {pt_str}}} \\left({_clean_latex_expr(f)}\\right)"
         steps.append(
             SolutionStep(
                 order=order,
@@ -152,8 +180,8 @@ class LimitStepGenerator(StepGenerator):
                 expression=orig_latex,
                 title_km="កំណត់កន្សោមលីមីតដើម",
                 title_en="Identify Limit Expression",
-                rationale_km=f"កត់សម្គាល់អនុគមន៍ f({var}) = {_to_latex(f)} និងចំណុចខិតជិត {var} \\to {pt_str}។",
-                rationale_en=f"Identify the function f({var}) = {_to_latex(f)} and the approach point {var} -> {pt_str}.",
+                rationale_km=f"កត់សម្គាល់អនុគមន៍ f({var}) = {_clean_latex_expr(f)} និងចំណុចខិតជិត {var} \\to {pt_str}។",
+                rationale_en=f"Identify the function f({var}) = {_clean_latex_expr(f)} and the approach point {var} -> {pt_str}.",
             )
         )
         order += 1
@@ -192,7 +220,7 @@ class LimitStepGenerator(StepGenerator):
                     order=order,
                     description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ដោយផ្ទាល់ នាំឱ្យមានរាងមិនកំណត់ $\\frac{{0}}{{0}}$៖",
                     description_en=f"Direct substitution of ${var} = {pt_str}$ yields indeterminate form $\\frac{{0}}{{0}}$:",
-                    expression=f"\\frac{{{latex(num)}}}{{{latex(den)}}} \\xrightarrow{{{var} = {pt_str}}} \\frac{{0}}{{0}} \\quad \\text{{(រាងមិនកំណត់)}}",
+                    expression=f"\\frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} \\xrightarrow{{{var} = {pt_str}}} \\frac{{0}}{{0}} \\quad \\text{{(រាងមិនកំណត់)}}",
                     title_km="កំណត់រាងមិនកំណត់ [0/0]",
                     title_en="Identify Indeterminate Form [0/0]",
                     rationale_km=f"ការជំនួសផ្ទាល់នាំឱ្យបានភាគយក និងភាគបែងស្មើសូន្យ ដូច្នេះត្រូវលុបរាងមិនកំណត់ [0/0]។",
@@ -251,7 +279,7 @@ class LimitStepGenerator(StepGenerator):
                     order=order,
                     description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ដោយផ្ទាល់ នាំឱ្យភាគបែងស្មើសូន្យ ($den = 0$)៖",
                     description_en=f"Direct substitution of ${var} = {pt_str}$ results in zero denominator ($den = 0$):",
-                    expression=f"\\frac{{{latex(num)}}}{{{latex(den)}}} \\xrightarrow{{{var} \\to {pt_str}}} \\frac{{{num_val_str}}}{{0}}",
+                    expression=f"\\frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} \\xrightarrow{{{var} \\to {pt_str}}} \\frac{{{num_val_str}}}{{0}}",
                     title_km="ពិនិត្យការជំនួសផ្ទាល់ (ភាគបែងស្មើសូន្យ)",
                     title_en="Direct Substitution (Zero Denominator)",
                     rationale_km=rationale_km,
@@ -261,7 +289,7 @@ class LimitStepGenerator(StepGenerator):
             )
             order += 1
 
-        # Step 3: Transformation / Factoring / Identity
+        # Step 3: Transformation / Factoring / Identity / L'Hôpital
         reduced_expr = None
         if is_indeterminate_0_0:
             has_radical = any(
@@ -271,19 +299,41 @@ class LimitStepGenerator(StepGenerator):
             has_trig = any(f.has(func) for func in (sympy.sin, sympy.cos, sympy.tan))
 
             if has_trig:
-                simplified_f = trigsimp(f)
-                if simplified_f != f:
-                    reduced_expr = simplified_f
+                dnum = sympy.diff(num, var)
+                dden = sympy.diff(den, var)
+                dnum_val = dnum.subs(var, pt)
+                dden_val = dden.subs(var, pt)
+
+                deriv_num_str = _clean_latex_expr(dnum)
+                deriv_den_str = _clean_latex_expr(dden)
+
+                steps.append(
+                    SolutionStep(
+                        order=order,
+                        description_km="ដោយសារលីមីតនៃអនុគមន៍ត្រីកោណមាត្រមានរាងមិនកំណត់ $\\frac{0}{0}$ អនុវត្តវិធាន L'Hôpital (ឬរូបមន្តត្រីកោណមាត្រ) ដោយគណនាដេរីវេភាគយក និងភាគបែង៖",
+                        description_en="Since the limit has indeterminate form 0/0, apply L'Hôpital's rule by differentiating numerator and denominator:",
+                        expression=rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} = \lim_{{{var} \to {pt_str}}} \frac{{{deriv_num_str}}}{{{deriv_den_str}}}",
+                        title_km="អនុវត្តវិធាន L'Hôpital",
+                        title_en="Apply L'Hôpital's Rule",
+                        rationale_km="វិធាន L'Hôpital អនុញ្ញាតឱ្យដោះស្រាយលីមីតរាង [0/0] ដោយយកដេរីវេនៃភាគយកចែកនឹងដេរីវេនៃភាគបែង៖ lim u/v = lim u'/v'។",
+                        rationale_en="L'Hôpital's rule resolves indeterminate [0/0] limits by evaluating the limit of quotient of derivatives.",
+                        rule_formula=r"\lim_{x \to c} \frac{u(x)}{v(x)} = \lim_{x \to c} \frac{u'(x)}{v'(x)}",
+                    )
+                )
+                order += 1
+
+                if dden_val != 0:
+                    eval_quotient = simplify_real_roots(dnum_val / dden_val)
                     steps.append(
                         SolutionStep(
                             order=order,
-                            description_km="ប្រើរូបមន្តត្រីកោណមាត្រ និងសម្រួលកត្តារួមដើម្បីលុបរាងមិនកំណត់៖",
-                            description_en="Apply trigonometric identities and cancel common factors to eliminate indeterminate form:",
-                            expression=f"{latex(f)} = {latex(simplified_f)}",
-                            title_km="បំប្លែងតាមរូបមន្តត្រីកោណមាត្រ",
-                            title_en="Apply Trigonometric Identities",
-                            rationale_km="ប្រើរូបមន្តត្រីកោណមាត្រដើម្បីសម្រួលកន្សោម និងលុបរាងមិនកំណត់។",
-                            rationale_en="Use trigonometric identities to simplify expression and eliminate indeterminate form.",
+                            description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ចូលក្នុងកន្សោមដេរីវេ៖",
+                            description_en=f"Substitute ${var} = {pt_str}$ into the differentiated quotient:",
+                            expression=rf"\frac{{{deriv_num_str}}}{{{deriv_den_str}}} \xrightarrow{{{var} = {pt_str}}} \frac{{{latex(dnum_val)}}}{{{latex(dden_val)}}} = {latex(eval_quotient)}",
+                            title_km="ជំនួសតម្លៃគណនាលីមីត",
+                            title_en="Substitute and Compute Limit",
+                            rationale_km="ក្រោយពីលុបរាងមិនកំណត់ ភាគបែងមិនសូន្យទៀតទេ ដូច្នេះអាចជំនួសតម្លៃផ្ទាល់បាន។",
+                            rationale_en="After differentiating, the denominator is non-zero, allowing direct evaluation.",
                         )
                     )
                     order += 1
@@ -354,7 +404,7 @@ class LimitStepGenerator(StepGenerator):
             if final_val is None:
                 final_val = oo
 
-        eval_expr_latex = latex(reduced_expr) if reduced_expr is not None else latex(f)
+        eval_expr_latex = _clean_latex_expr(reduced_expr) if reduced_expr is not None else _clean_latex_expr(f)
 
         steps.append(
             SolutionStep(

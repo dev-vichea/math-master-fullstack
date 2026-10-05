@@ -101,52 +101,56 @@ async def vision_ocr(
     vision_engine: BaseVisionEngine = Depends(get_vision_engine),
 ) -> APIResponse:
     """
-    Fast OCR endpoint: image -> detected LaTeX math without solving.
+    Fast OCR endpoint with quality validation: image -> validated LaTeX math without solving.
     """
     image_bytes = await image.read()
     try:
-        vision_result = vision_engine.detect(image_bytes)
-        if vision_result.error_message or not vision_result.detected_text:
-            return APIResponse(
-                success=False,
-                data=None,
-                error=vision_result.error_message or "No mathematical text detected in image",
-            )
-        from app.parser.exercise_parser.exercise_parser import clean_math_only, parse_exercise
+        from app.ocr.quality import MathOcrQualityPipeline
+        from app.parser.exercise_parser.exercise_parser import parse_exercise
 
-        meta = vision_result.exercise_metadata or {}
-        raw_expr = meta.get("primary_expression")
-        instruction = meta.get("instruction")
-        exercise_title = meta.get("exercise_title")
-        sub_exercises = meta.get("sub_exercises", [])
+        pipeline = MathOcrQualityPipeline(formula_engine=vision_engine)
+        pipeline_res = pipeline.process_image(image_bytes)
+        candidate = pipeline_res.selected_candidate
 
-        if not raw_expr:
-            parsed_ex = parse_exercise(vision_result.detected_text)
-            raw_expr = parsed_ex.primary_expression
-            instruction = instruction or parsed_ex.instruction
-            exercise_title = exercise_title or parsed_ex.exercise_title
-            if not sub_exercises and parsed_ex.sub_exercises:
-                sub_exercises = [
-                    {
-                        "label": s.label,
-                        "raw_text": s.raw_text,
-                        "expression": clean_math_only(s.expression),
-                        "intent": s.intent,
-                    }
-                    for s in parsed_ex.sub_exercises
-                ]
-
-        clean_expr = clean_math_only(raw_expr or vision_result.detected_text)
+        parsed_ex = parse_exercise(candidate.normalized_math_text or candidate.raw_ocr_text)
+        instruction = parsed_ex.instruction
+        exercise_title = parsed_ex.exercise_title
+        sub_exercises = [
+            {
+                "label": s.label,
+                "raw_text": s.raw_text,
+                "expression": s.expression,
+                "intent": s.intent,
+            }
+            for s in parsed_ex.sub_exercises
+        ]
 
         return APIResponse(
             success=True,
             data={
-                "detected_text": vision_result.detected_text,
-                "expression": clean_expr,
-                "confidence": vision_result.confidence,
+                "detected_text": candidate.raw_ocr_text,
+                "expression": candidate.normalized_math_text,
+                "status": candidate.status.value,
+                "confidence": candidate.confidence,
+                "score": candidate.score,
+                "suspicious_tokens": candidate.suspicious_tokens,
+                "validation_issues": candidate.validation_issues,
+                "detected_prefix": candidate.detected_prefix,
+                "detected_suffix": candidate.detected_suffix,
                 "exercise_title": exercise_title,
                 "instruction": instruction,
                 "sub_exercises": sub_exercises,
+                "candidates": [
+                    {
+                        "raw_text": c.raw_ocr_text,
+                        "normalized": c.normalized_math_text,
+                        "status": c.status.value,
+                        "confidence": c.confidence,
+                        "score": c.score,
+                        "variant": c.variant_name,
+                    }
+                    for c in pipeline_res.all_candidates
+                ],
             },
             error=None,
         )

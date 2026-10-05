@@ -358,9 +358,13 @@ def _extract_single_math_expression(text: str) -> str | None:
 
     # Clean leading/trailing stray punctuation (preserve leading \ for LaTeX commands like \frac, \sqrt)
     # Also strip Khmer punctuation marks '។' (\u17d4) and '៕' (\u17d5)
-    best = best.strip(".:;=, \u17d4\u17d5")
+    # Do not strip '==' which is invalid mathematical syntax
+    if not (best.endswith("==") or best.startswith("==")):
+        if best.endswith("=") and not best.endswith("=="):
+            best = best[:-1].rstrip()
+        best = best.strip(".:;, \u17d4\u17d5")
     while best.endswith("\\"):
-        best = best[:-1].rstrip(".:;=, \u17d4\u17d5")
+        best = best[:-1].rstrip(".:;, \u17d4\u17d5")
 
     if not _is_valid_math_expression(best):
         return None

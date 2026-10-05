@@ -11,15 +11,16 @@ valdata: "backend/training/pix2tex/data/val.pkl"
 tokenizer: "dataset/tokenizer.json"
 
 # Hardware & Training Hyperparameters
-device: "cuda"            # Set to "mps" for Apple Silicon, "cuda" for Colab/NVIDIA GPU, or "cpu"
-batchsize: 16             # Reduce to 8 if running low on VRAM
-testbatchsize: 16
+device: "mps"             # "mps" for Apple Silicon, "cuda" for Colab/NVIDIA, or "cpu"
+batchsize: 4
+testbatchsize: 4
+keep_smaller_batches: true
 epochs: 10
 lr: 0.0001                # 1e-4 for fine-tuning pretrained weights (gentle learning rate)
 optimizer: "Adam"
 betas: [0.9, 0.999]
 scheduler: "StepLR"
-lr_step: 5
+lr_step: 4
 gamma: 0.5
 seed: 42
 wandb: false              # Set to true if you use Weights & Biases tracking
@@ -41,7 +42,7 @@ max_height: 192
 max_width: 672
 min_height: 32
 min_width: 32
-pad: false
+pad: true
 temperature: 0.2
 
 # Checkpoint loading

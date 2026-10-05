@@ -8,6 +8,7 @@ from typing import Any
 
 from app.models.problem import MathProblem, MultiProblemSet, ProblemSource
 from app.ocr.engines.base import BaseVisionEngine, VisionResult
+from app.ocr.quality import CandidateStatus, MathOcrQualityPipeline
 from app.parser.exercise_parser.exercise_parser import parse_exercise
 from app.reasoning.solution_builder.problem_builder import ProblemBuilder
 from app.services.math_service import MathService
@@ -25,76 +26,115 @@ class VisionService:
         vision_engine: BaseVisionEngine,
         math_service: MathService | None = None,
         problem_builder: ProblemBuilder | None = None,
+        quality_pipeline: MathOcrQualityPipeline | None = None,
     ) -> None:
         self.vision_engine = vision_engine
         self.math_service = math_service or MathService()
         self.problem_builder = problem_builder or ProblemBuilder()
+        self.quality_pipeline = quality_pipeline or MathOcrQualityPipeline(formula_engine=self.vision_engine)
 
     def process_image(self, image_bytes: bytes) -> dict[str, Any]:
         """
-        Executes OCR detection, parses exercise structure, and solves the detected math.
+        Executes OCR detection with quality validation, parses exercise structure,
+        and solves the verified math.
         """
-        vision_result: VisionResult = self.vision_engine.detect(image_bytes)
+        pipeline_result = self.quality_pipeline.process_image(image_bytes)
+        candidate = pipeline_result.selected_candidate
 
-        if vision_result.error_message or not vision_result.detected_text:
-            err = vision_result.error_message or "No mathematical text detected in image"
-            raise VisionProcessingError(err)
+        if candidate.status == CandidateStatus.INVALID and not candidate.is_parseable:
+            issues = "; ".join(candidate.validation_issues) if candidate.validation_issues else "Invalid mathematical syntax"
+            raise VisionProcessingError(f"Scanned image could not be verified as valid mathematics: {issues}")
 
-        exercise_meta = vision_result.exercise_metadata
-        if not exercise_meta:
-            parsed_ex = parse_exercise(vision_result.detected_text)
-            exercise_meta = {
-                "exercise_title": parsed_ex.exercise_title,
-                "instruction": parsed_ex.instruction,
-                "primary_expression": parsed_ex.primary_expression,
-                "sub_exercises": [
-                    {
-                        "label": sub.label,
-                        "raw_text": sub.raw_text,
-                        "expression": sub.expression,
-                        "intent": sub.intent,
-                    }
-                    for sub in parsed_ex.sub_exercises
-                ],
-            }
+        vision_result = VisionResult(
+            detected_text=candidate.raw_ocr_text,
+            confidence=candidate.confidence,
+        )
+
+        exercise_meta = None
+        parsed_ex = parse_exercise(candidate.normalized_math_text or candidate.raw_ocr_text)
+        exercise_meta = {
+            "exercise_title": parsed_ex.exercise_title,
+            "instruction": parsed_ex.instruction,
+            "primary_expression": candidate.normalized_math_text or parsed_ex.primary_expression,
+            "sub_exercises": [
+                {
+                    "label": sub.label,
+                    "raw_text": sub.raw_text,
+                    "expression": sub.expression,
+                    "intent": sub.intent,
+                }
+                for sub in parsed_ex.sub_exercises
+            ],
+        }
 
         instruction = exercise_meta.get("instruction")
-        primary_expr = exercise_meta.get("primary_expression")
+        primary_expr = candidate.normalized_math_text or exercise_meta.get("primary_expression")
         if instruction and primary_expr:
             text_to_solve = f"{instruction} {primary_expr}"
         else:
-            text_to_solve = primary_expr or vision_result.detected_text
+            text_to_solve = primary_expr or candidate.raw_ocr_text
 
         try:
             try:
                 solve_data = self.math_service.process_question(text_to_solve)
             except MathProcessingError:
-                if text_to_solve != vision_result.detected_text:
-                    solve_data = self.math_service.process_question(vision_result.detected_text)
+                if text_to_solve != candidate.normalized_math_text and candidate.normalized_math_text:
+                    solve_data = self.math_service.process_question(candidate.normalized_math_text)
                 else:
                     raise
 
+            # If top candidate produced no valid answer, try alternative candidates from variants
+            if (solve_data.answer is None or not solve_data.is_verified) and len(pipeline_result.all_candidates) > 1:
+                for alt in pipeline_result.all_candidates[1:]:
+                    if alt.status != CandidateStatus.INVALID:
+                        try:
+                            alt_solve = self.math_service.process_question(alt.normalized_math_text or alt.raw_ocr_text)
+                            if alt_solve.answer is not None and alt_solve.is_verified:
+                                candidate = alt
+                                solve_data = alt_solve
+                                break
+                        except Exception:
+                            pass
+
             solve_data_dict = solve_data.model_dump()
-            solve_data_dict["ocr_detected_text"] = vision_result.detected_text
-            solve_data_dict["ocr_confidence"] = vision_result.confidence
+            solve_data_dict["ocr_detected_text"] = candidate.raw_ocr_text
+            solve_data_dict["ocr_confidence"] = candidate.confidence
+            solve_data_dict["ocr_status"] = candidate.status.value
+            solve_data_dict["suspicious_tokens"] = candidate.suspicious_tokens
+            solve_data_dict["validation_issues"] = candidate.validation_issues
+            solve_data_dict["detected_prefix"] = candidate.detected_prefix
+            solve_data_dict["detected_suffix"] = candidate.detected_suffix
             solve_data_dict["exercise_title"] = exercise_meta.get("exercise_title")
             solve_data_dict["instruction"] = exercise_meta.get("instruction")
             solve_data_dict["sub_exercises"] = exercise_meta.get("sub_exercises", [])
-            solve_data_dict["cleaned_math_expression"] = exercise_meta.get("primary_expression")
+            solve_data_dict["cleaned_math_expression"] = candidate.normalized_math_text
+            solve_data_dict["candidates"] = [
+                {
+                    "raw_text": c.raw_ocr_text,
+                    "normalized": c.normalized_math_text,
+                    "status": c.status.value,
+                    "confidence": c.confidence,
+                    "score": c.score,
+                    "variant": c.variant_name,
+                }
+                for c in pipeline_result.all_candidates
+            ]
 
             return solve_data_dict
 
         except MathProcessingError as exc:
             partial_data = {
-                "ocr_detected_text": vision_result.detected_text,
-                "ocr_confidence": vision_result.confidence,
+                "ocr_detected_text": candidate.raw_ocr_text,
+                "ocr_confidence": candidate.confidence,
+                "ocr_status": candidate.status.value,
+                "suspicious_tokens": candidate.suspicious_tokens,
                 "exercise_title": exercise_meta.get("exercise_title"),
                 "instruction": exercise_meta.get("instruction"),
                 "sub_exercises": exercise_meta.get("sub_exercises", []),
-                "cleaned_math_expression": exercise_meta.get("primary_expression"),
+                "cleaned_math_expression": candidate.normalized_math_text,
             }
             raise MathProcessingError(
-                message=f"OCR detected '{vision_result.detected_text}' but failed to solve: {exc}",
+                message=f"OCR detected '{candidate.raw_ocr_text}' but failed to solve: {exc}",
                 details=partial_data,
             ) from exc
 

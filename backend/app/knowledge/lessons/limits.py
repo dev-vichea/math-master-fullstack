@@ -11,6 +11,7 @@ from app.knowledge.models import (
     Chapter,
     Concept,
     Lesson,
+    Method,
     RuleFormula,
     SubjectDomain,
 )
@@ -63,6 +64,28 @@ rule_limit_factorization = RuleFormula(
     methods=[method_limit_factor_cancel],
 )
 
+# Rule 4: Trigonometric Limit & L'Hôpital's Rule for [0/0]
+method_limit_trigonometric = Method(
+    id="method_limit_trigonometric",
+    rule_id="rule_limit_trigonometric",
+    name_km="វិធីលីមីតអនុគមន៍ត្រីកោណមាត្រ (L'Hôpital និងប្តូរអថេរ)",
+    name_en="Trigonometric Indeterminate Limit Method (L'Hôpital / Change of Variable)",
+    description_km="ដោះស្រាយលីមីតត្រីកោណមាត្ររាងមិនកំណត់ 0/0 តាមវិធាន L'Hôpital ឬការប្តូរអថេរ។",
+    description_en="Resolve trigonometric indeterminate limits [0/0] via L'Hôpital's rule or variable substitution.",
+    applicability="Limits involving trigonometric functions resulting in 0/0 indeterminate form.",
+)
+
+rule_limit_trigonometric = RuleFormula(
+    id="rule_limit_trigonometric",
+    concept_id="concept_indeterminate_forms",
+    name_km="លីមីតត្រីកោណមាត្រ និងវិធាន L'Hôpital",
+    name_en="Trigonometric Limit & L'Hôpital's Rule",
+    formula_latex=r"\lim_{x \to c} \frac{u(x)}{v(x)} = \lim_{x \to c} \frac{u'(x)}{v'(x)}",
+    description_km="អនុវត្តវិធាន L'Hôpital ឬប្តូរអថេរដើម្បីលុបរាងមិនកំណត់ [0/0] នៃអនុគមន៍ត្រីកោណមាត្រ។",
+    description_en="Apply L'Hôpital's rule or variable substitution to evaluate indeterminate trigonometric limits [0/0].",
+    methods=[method_limit_trigonometric],
+)
+
 # Concept 2: Indeterminate Forms
 concept_indeterminate_forms = Concept(
     id="concept_indeterminate_forms",
@@ -72,7 +95,7 @@ concept_indeterminate_forms = Concept(
     title_en="Indeterminate Form [0/0]",
     definition_km="លីមីតនៃផលធៀបអនុគមន៍ដែលភាគយកនិងភាគបែងខិតជិតសូន្យដំណាលគ្នា។",
     definition_en="Limits of quotients where both numerator and denominator approach zero.",
-    rules=[rule_conjugate, rule_limit_factorization],
+    rules=[rule_conjugate, rule_limit_factorization, rule_limit_trigonometric],
 )
 
 lesson_limits = Lesson(

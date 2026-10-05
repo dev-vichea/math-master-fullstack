@@ -124,16 +124,12 @@ class ProblemClassifier:
                 chars.has_complex_numbers = True
 
             # Detect trigonometry
-            for atom in atoms:
-                if type(atom) in self.trig_functions:
-                    chars.has_trigonometry = True
-                    break
+            if any(expr.has(fn) for fn in self.trig_functions):
+                chars.has_trigonometry = True
 
             # Detect calculus
-            for atom in atoms:
-                if type(atom) in self.calculus_operations:
-                    chars.has_calculus = True
-                    break
+            if any(expr.has(op) or isinstance(expr, op) for op in self.calculus_operations):
+                chars.has_calculus = True
 
         # Detect exponents/radicals
         if hasattr(expr, "as_ordered_factors"):

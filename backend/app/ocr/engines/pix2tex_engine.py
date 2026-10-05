@@ -156,7 +156,12 @@ def clean_pix2tex_output(latex_code: str) -> str:
     # Normalize LaTeX spacing tokens like \; \, \! \: \quad \qquad \hfill \vfill
     t = re.sub(r"\\+([;,!:])", " ", t)
     t = re.sub(r"\\(?:quad|qquad|hfill|vfill)", " ", t)
-    # Strip trailing LaTeX punctuation like ;, .
+    # Normalize derivative primes misread as asterisks (e.g. y^* r -> y'', y^* -> y')
+    t = re.sub(r"([yY])\^\{?\*\}?\s*r\b", r"\1''", t)
+    t = re.sub(r"([yY])\^\{?\*\}?", r"\1'", t)
+
+    # Strip trailing punctuation, Khmer full stops (ฯ), and OCR noise letters like dangling 'i', 'v', 'I', \vdash after formula
+    t = re.sub(r"(?<=\d|\)|\})\s*[\s,;.]*(?:\\\\vdash|\\\\uparrow|[iIvV|ฯ])+$", "", t)
     t = re.sub(r"[\s;.,]+$", "", t)
     # Normalize delimiter sizings like \Biggr), \Bigg], \biggr} into standard brackets
     t = re.sub(r"\\(?:Bigg[lr]?|bigg[lr]?|Big[lr]?|big[lr]?)\s*([()[\]{}|])", r"\1", t)
@@ -178,11 +183,21 @@ def clean_pix2tex_output(latex_code: str) -> str:
     # Normalize \times recognized as variable x (e.g. 12\times=25 -> 12x=25)
     t = re.sub(r"(?<=\d)\\times(?=[=+\-*/<>]|\s|$)", "x", t)
     # Normalize radical index OCR notations: {}^{3}\sqrt{...} or 3\sqrt{...} -> \sqrt[3]{...}
+    t = t.replace(r"{}\bar{\Lambda}", r"\sqrt").replace(r"\bar{\Lambda}", r"\sqrt")
+    t = t.replace(r"{}\bar{\Delta}", r"\sqrt").replace(r"\bar{\Delta}", r"\sqrt")
     t = re.sub(r"\{\}\^\{?(\d+)\}?\s*\\sqrt\s*\{", r"\\sqrt[\1]{", t)
     t = re.sub(r"(\\lim(?:_\{[^}]*\})?)\s*([2-9])\s*\{\s*\\sqrt\s*(\{.*?\})\s*\}", r"\1 \\sqrt[\2]\3", t)
     t = re.sub(r"(\\lim(?:_\{[^}]*\})?)\s*([2-9])\s*\\sqrt\s*\{", r"\1 \\sqrt[\2]{", t)
     if "lim_{" in t and r"\lim_{" not in t:
         t = t.replace("lim_{", r"\lim_{")
+
+    # Normalize handwriting OCR artifacts (e.g. kappa/chi to x, \mathcal{X} to x, \vert\kappax to \ln x)
+    t = re.sub(r"(\\lim_\{?)\\(?:kappa|chi)\b", r"\g<1>x", t)
+    t = re.sub(r"\\mathcal\{[xX]\}", "x", t)
+    t = re.sub(r"_\{\s*-\s*\}|_-\b", " - ", t)
+    t = re.sub(r"(?<=[=+\-*/\s])\\vert(?=[=+\-*/\s]|$)", "1", t)
+    t = t.replace(r"\vert\kappax", r"\ln x").replace(r"\mp", "x")
+    t = re.sub(r"\\(?:vert|mid|\|)\s*(?:\\(?:kappa|chi)\s*)?x(?=[\s\)/]|$)", r"\\ln x", t)
     # Unwrap redundant wrapper braces around \frac e.g. '{\frac{...}{...}}' -> '\frac{...}{...}'
     # Preserve braces if preceded by \sqrt or \sqrt[...] (where braces enclose the radicand)
     t = re.sub(r"(?<!\\sqrt)(?<!\\sqrt\[\d\])\{\s*(\\frac\{[^{}]*\}\{[^{}]*\})\s*\}", r"\1", t)
@@ -221,7 +236,7 @@ class Pix2TexVisionEngine(MathVisionEngine):
         self.weights_path = weights_path or os.getenv("PIX2TEX_WEIGHTS_PATH")
         if self.weights_path is None:
             candidate = (
-                Path(__file__).resolve().parent.parent.parent
+                Path(__file__).resolve().parent.parent.parent.parent
                 / "training"
                 / "pix2tex"
                 / "models"
@@ -244,6 +259,7 @@ class Pix2TexVisionEngine(MathVisionEngine):
                     "checkpoint": str(self.weights_path),
                     "no_cuda": True,
                     "no_resize": False,
+                    "pad": True,
                 })
                 self._model = LatexOCR(arguments=args)
             else:
@@ -357,7 +373,7 @@ class Pix2TexVisionEngine(MathVisionEngine):
         import re
 
         if re.match(
-            r"^(\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)|[a-zA-Z0-9\u1780-\u17a2]{1,2}[\.\)៖:។]?)\s*$",
+            r"^(\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)|[a-zA-Z0-9\u1780-\u17a2]{1,2}[\.\)៖:។])\s*$",
             t,
         ):
             return True
@@ -469,20 +485,11 @@ class Pix2TexVisionEngine(MathVisionEngine):
                 if self._is_valid_prefix(raw_label):
                     label_text = raw_label
                     f_crop = img.crop((split_x, 0, img.width, img.height))
-                    if f_crop.height < 150:
-                        scale = 1.2
-                        f_crop = f_crop.resize(
-                            (int(f_crop.width * scale), int(f_crop.height * scale)),
-                            Image.Resampling.LANCZOS,
-                        )
-                    f_padded = ImageOps.expand(f_crop, border=(20, 20, 20, 20), fill="white")
-                    raw_latex = self.model(f_padded)
+                    raw_latex = self.model(f_crop)
                 else:
-                    f_padded = ImageOps.expand(img, border=(20, 20, 20, 20), fill="white")
-                    raw_latex = self.model(f_padded)
+                    raw_latex = self.model(img)
             else:
-                f_padded = ImageOps.expand(img, border=(20, 20, 20, 20), fill="white")
-                raw_latex = self.model(f_padded)
+                raw_latex = self.model(img)
 
             latex_code = clean_pix2tex_output(raw_latex)
 

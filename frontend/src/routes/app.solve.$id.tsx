@@ -110,7 +110,7 @@ function Solver() {
         <div className="mt-8"><FinalAnswer answer={cook.answer} /></div>
         <div className="mt-8 flex flex-wrap gap-3">
           <button onClick={() => toast.success("Saved to My Cooks")} className={mcButton()}><Bookmark className="h-4 w-4" />Save Cook</button>
-          <Link to="/app" className={mcButton({ variant: "outline" })}><RotateCcw className="h-4 w-4" />Try Another Problem</Link>
+          <Link to="/app/solve" className={mcButton({ variant: "outline" })}><RotateCcw className="h-4 w-4" />Try Another Problem</Link>
           <Link to="/app/learn" className={mcButton({ variant: "soft" })}><Sparkles className="h-4 w-4" />Practice Similar</Link>
         </div>
       </div>

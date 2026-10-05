@@ -16,7 +16,7 @@ from app.core.exceptions import MathProcessingError
 from app.core.khmer.extractor import extract_expression
 from app.core.khmer.intent import RuleBasedIntentClassifier
 from app.core.normalization.pipeline import normalize_text
-from app.core.parser.expression_parser import ExpressionParseError, parse_math_text
+from app.parser.math_parser.expression_parser import ExpressionParseError, parse_math_text
 from app.models.problem import MathProblem, ProblemSource
 
 

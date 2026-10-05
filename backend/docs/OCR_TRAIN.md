@@ -81,6 +81,19 @@ If you have real cropped formulas from school worksheets:
 1. Save your cropped PNG images into `backend/training/pix2tex/data/train_images/`.
 2. Add the corresponding ground-truth LaTeX line into `backend/training/pix2tex/data/train_equations.txt`.
 
+### Option C: Handwritten Math with Data Augmentation
+Handwritten notes written in pencil or ink have variations in handwriting slant, stroke thickness, and lighting.
+To train on handwritten photos:
+1. Store raw handwritten photos in `backend/training/pix2tex/data/images/` using clear naming (`handwritten_01.png`, `handwritten_02.png`, etc.).
+2. Run [`prepare_handwrite_dataset.py`](file:///Users/kiddd/Development/math-lab/backend/training/pix2tex/prepare_handwrite_dataset.py):
+   ```bash
+   python backend/training/pix2tex/prepare_handwrite_dataset.py
+   ```
+   This automatically:
+   - Proportionally scales images so they never exceed pix2tex dimensions (`672x192`).
+   - Generates realistic handwriting augmentations (forward/backward slant, bold gel pen, thin ballpoint, contrast, paper lighting).
+   - Compiles binary `train.pkl` and `val.pkl` with integer index filenames (`0.png`, `1.png`, ...).
+
 ---
 
 ## 5. Step 3: Run Fine-Tuning
