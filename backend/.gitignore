@@ -66,3 +66,18 @@ dmypy.json
 *.swp
 *.swo
 *~
+
+# Machine Learning weights & checkpoints
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+checkpoints/
+models/
+training/models/
+training/pix2tex/models/
+training/pix2tex/data/train_images/
+training/pix2tex/data/val_images/
+training/pix2tex/data/*.pkl
+

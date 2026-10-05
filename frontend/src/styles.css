@@ -1,0 +1,237 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "katex/dist/katex.min.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-deep: var(--primary-deep);
+  --color-t-coral: var(--t-coral);
+  --color-t-mint: var(--t-mint);
+  --color-t-sky: var(--t-sky);
+  --color-t-sun: var(--t-sun);
+  --color-t-rose: var(--t-rose);
+  --color-success: var(--success);
+  --font-display: "Nunito", "Kantumruy Pro", ui-rounded, sans-serif;
+  --font-sans: "Nunito Sans", "Kantumruy Pro", "Khmer OS", "Noto Sans Khmer", system-ui, sans-serif;
+  --shadow-soft: var(--shadow-soft);
+  --shadow-float: var(--shadow-float);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 1.5rem;
+  --keyboard-zindex: 10000;
+  --keyboard-accent-color: var(--primary);
+  --background: oklch(0.985 0.006 85);
+  --foreground: oklch(0.2 0.04 275);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.04 275);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.04 275);
+  --primary: oklch(0.55 0.22 290);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: oklch(0.95 0.035 295);
+  --primary-deep: oklch(0.42 0.2 290);
+  --secondary: oklch(0.965 0.018 295);
+  --secondary-foreground: oklch(0.3 0.1 290);
+  --muted: oklch(0.96 0.01 290);
+  --muted-foreground: oklch(0.5 0.03 275);
+  --accent: oklch(0.95 0.035 295);
+  --accent-foreground: oklch(0.35 0.15 290);
+  --destructive: oklch(0.6 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.92 0.015 295);
+  --input: oklch(0.92 0.015 295);
+  --ring: oklch(0.55 0.22 290);
+  --t-coral: oklch(0.7 0.16 30);
+  --t-mint: oklch(0.7 0.13 165);
+  --t-sky: oklch(0.68 0.13 240);
+  --t-sun: oklch(0.8 0.15 80);
+  --t-rose: oklch(0.68 0.18 355);
+  --success: oklch(0.62 0.15 155);
+  --shadow-soft: 0 10px 30px -12px oklch(0.4 0.15 290 / 0.18);
+  --shadow-float: 0 24px 50px -20px oklch(0.4 0.18 290 / 0.3);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@layer base {
+  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  html { scroll-behavior: smooth; }
+}
+
+@keyframes floaty { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+@keyframes drift { 0%,100% { transform: translate(0,0) rotate(0) } 50% { transform: translate(6px,-14px) rotate(8deg) } }
+@keyframes spin-slow { to { transform: rotate(360deg) } }
+
+@utility animate-floaty { animation: floaty 6s ease-in-out infinite; }
+@utility animate-drift { animation: drift 9s ease-in-out infinite; }
+@utility animate-spin-slow { animation: spin-slow 40s linear infinite; }
+
+@utility reveal {
+  opacity: 0; transform: translateY(24px);
+  transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1);
+  &.is-visible { opacity: 1; transform: none; }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@utility card-lift {
+  transition: transform .3s cubic-bezier(.2,.7,.2,1), box-shadow .3s ease;
+  &:hover { transform: translateY(-6px); box-shadow: var(--shadow-float); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-floaty, .animate-drift, .animate-spin-slow { animation: none; }
+  .reveal { opacity: 1; transform: none; }
+}
+
+math-field {
+  display: block;
+  width: 100%;
+  font-size: 1.35rem;
+  line-height: 1.6;
+  background: transparent;
+  color: var(--color-foreground);
+  --caret-color: var(--color-primary);
+  --selection-background-color: rgba(59, 130, 246, 0.22);
+  --selection-color: var(--color-foreground);
+  --contains-highlight-background-color: transparent !important;
+  --highlight-text: transparent !important;
+  --text-highlight-background-color: transparent !important;
+  --contains-highlight-color: inherit;
+  font-family: var(--font-sans);
+}
+
+math-field:focus,
+math-field:focus-within {
+  outline: none;
+  border: none;
+}
+
+math-field::part(menu-toggle) {
+  display: none !important;
+}
+
+math-field::part(virtual-keyboard-toggle) {
+  display: none !important;
+}
+
+/* Hide automatic focused background highlights when unselected */
+math-field .ML__focused .ML__text,
+math-field .ML__text,
+.ML__text {
+  background: transparent !important;
+}
+
+math-field .ML__focused .ML__contains-highlight,
+math-field .ML__contains-highlight,
+.ML__contains-highlight {
+  background: transparent !important;
+}
+
+/* Ensure text inside MathLive (.ML__text) renders cleanly with Khmer typography and upright style */
+math-field .ML__text,
+.ML__latex .ML__text {
+  font-family: "Kantumruy Pro", "Nunito Sans", "Khmer OS", "Noto Sans Khmer", sans-serif !important;
+  font-style: normal !important;
+  font-weight: 500;
+  color: var(--color-foreground);
+  letter-spacing: 0.01em;
+  padding: 0 1px;
+}
+
+/* Provide Khmer font fallback for math identifiers that contain Khmer Unicode */
+math-field .ML__cmr,
+math-field .ML__mathit,
+math-field .ML__text {
+  font-family: KaTeX_Main, "Kantumruy Pro", "Khmer OS", "Noto Sans Khmer", sans-serif;
+}
+
+body > .ML__keyboard {
+  z-index: 10000 !important;
+}
+

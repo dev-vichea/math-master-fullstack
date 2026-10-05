@@ -18,6 +18,7 @@ from app.classifier.problem_classifier.intent_classifier import (
 )
 from app.core.cache import get_solve_cache
 from app.core.logging import get_logger
+from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
 from app.parser.expression_parser.khmer_extractor import extract_expression
 from app.parser.expression_parser.khmer_normalizer import normalize_khmer_text
 from app.parser.math_parser.expression_parser import ExpressionParseError, parse_math_text
@@ -41,7 +42,8 @@ class MathService:
         Parses question text, detects intent, extracts raw and normalized math expressions,
         and classifies the problem type without solving.
         """
-        normalized_text = normalize_khmer_text(question)
+        sanitized = sanitize_ocr_math_text(question)
+        normalized_text = normalize_khmer_text(sanitized)
         intent = self.intent_classifier.classify(normalized_text)
         raw_expression = extract_expression(normalized_text)
 
@@ -66,7 +68,8 @@ class MathService:
         """
         Runs the full end-to-end math pipeline to solve and produce step-by-step output.
         """
-        normalized_text = normalize_khmer_text(question)
+        sanitized = sanitize_ocr_math_text(question)
+        normalized_text = normalize_khmer_text(sanitized)
         intent = self.intent_classifier.classify(normalized_text)
 
         if intent == MathIntent.UNKNOWN:
@@ -98,6 +101,26 @@ class MathService:
                 problem_type = "expression_expansion"
         elif any(kw in q_lower for kw in ["ឌីផេរ៉ង់ស្យែល", "differential"]):
             problem_type = "calculus_differential_equation"
+            is_form_ode = any(
+                kw in q_lower
+                for kw in [
+                    "រកសមីការឌីផេរ៉ង់ស្យែល",
+                    "form differential",
+                    "find differential",
+                    "find the differential",
+                    "find the second-order differential",
+                ]
+            ) and any(kw in q_lower for kw in ["ជាចម្លើយ", "as a solution", "as solution"])
+            if is_form_ode:
+                if not getattr(parsed, "metadata", None):
+                    parsed.metadata = {}
+                parsed.metadata["is_form_ode"] = True
+                parsed.metadata["order"] = 2
+                if "function_rhs" not in parsed.metadata:
+                    if hasattr(parsed.sympy_expr, "rhs"):
+                        parsed.metadata["function_rhs"] = parsed.sympy_expr.rhs
+                    else:
+                        parsed.metadata["function_rhs"] = parsed.sympy_expr
         elif any(kw in q_lower for kw in ["ដេរីវេ", "derivative", "differentiate", "derive"]):
             problem_type = "calculus_derivative"
         elif any(kw in q_lower for kw in ["រួម ឬរីក", "រួមឬរីក", "ភាពរួម", "ស្វ៊ីតរួម", "ស្វ៊ីតរីក"]):

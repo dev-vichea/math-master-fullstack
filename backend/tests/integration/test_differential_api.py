@@ -87,7 +87,9 @@ def test_api_vision_differential_crops():
     app.dependency_overrides[get_vision_engine] = lambda: pix_engine
 
     client = TestClient(app)
-    crops_dir = Path("backend/training/test_exercises/differentials")
+    crops_dir = Path("training/test_exercises/differentials")
+    if not crops_dir.exists():
+        crops_dir = Path("backend/training/test_exercises/differentials")
 
     test_crops = [
         "crop_ex1_ka.png",
@@ -141,6 +143,93 @@ def test_api_worksheet_process_differential():
     assert len(ws_data["solutions"]) == 3
     # Check that solutions were correctly found
     assert any("x^{3}" in s.get("answer", "") or "x**3" in s.get("answer", "") for s in ws_data["solutions"])
+
+def test_api_solve_differential_second_order():
+    """Test /api/v1/math/solve for Second-Order Differential Equations (Second Form)."""
+    client = TestClient(app)
+
+    # 1. Form ODE from solution (3.ក from image6.png)
+    res1 = client.post(
+        "/api/v1/math/solve",
+        json={"question": "រកសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែនដែលមានអនុគមន៍ f ជាចម្លើយ: f(x) = (x + 1)e^{-2x}"},
+    )
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["success"] is True
+    assert "y'' + 4y' + 4y = 0" in data1["data"]["answer"]
+    assert len(data1["data"]["steps"]) == 4
+
+    # 2. Form ODE from solution (3.ខ from image6.png)
+    res2 = client.post(
+        "/api/v1/math/solve",
+        json={"question": "រកសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែនដែលមានអនុគមន៍ f ជាចម្លើយ: f(x) = 2e^{-x} + 3e^{3x}"},
+    )
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["success"] is True
+    assert "y'' - 2y' - 3y = 0" in data2["data"]["answer"]
+
+    # 3. Direct 2nd-order ODE with Cauchy conditions
+    res3 = client.post(
+        "/api/v1/math/solve",
+        json={"question": "y'' - 2y' - 3y = 0 , y(0) = 5 , y'(0) = 7"},
+    )
+    assert res3.status_code == 200
+    data3 = res3.json()
+    assert data3["success"] is True
+    assert "3 e^{3 x} + 2 e^{- x}" in data3["data"]["answer"] or "2 e^{- x} + 3 e^{3 x}" in data3["data"]["answer"]
+    assert len(data3["data"]["steps"]) == 5
+
+
+def test_api_vision_image6_worksheet():
+    """Test Vision endpoint directly on image6.png from training exercises."""
+    pix_engine = Pix2TexVisionEngine()
+    app.dependency_overrides[get_vision_engine] = lambda: pix_engine
+
+    client = TestClient(app)
+    img_path = Path("training/test_exercises/differentials/image6.png")
+    if not img_path.exists():
+        img_path = Path("backend/training/test_exercises/differentials/image6.png")
+    assert img_path.exists(), "image6.png must exist"
+
+    with open(img_path, "rb") as f:
+        files = {"image": ("image6.png", f, "image/png")}
+        res = client.post("/api/v1/math/vision", files=files)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["success"] is True
+        assert "y'' + 4y' + 4y = 0" in data["data"]["answer"]
+
+    app.dependency_overrides.clear()
+
+
+def test_api_vision_image7_exercises():
+    """Test Vision endpoint directly on crops from image7.png."""
+    pix_engine = Pix2TexVisionEngine()
+    app.dependency_overrides[get_vision_engine] = lambda: pix_engine
+
+    client = TestClient(app)
+    crops_dir = Path("training/test_exercises/differentials")
+    if not crops_dir.exists():
+        crops_dir = Path("backend/training/test_exercises/differentials")
+
+    test_cases = [
+        ("crop_ex7_ka.png", "- \\frac{e^{x}}{2} + \\frac{3 e^{- x}}{2}"),
+        ("crop_ex7_ko.png", "3 \\sin{\\left(x \\right)} - 2 \\cos{\\left(x \\right)}"),
+        ("crop_ex7_kho.png", "2 e^{2 x} - e^{x}"),
+    ]
+
+    for crop_name, expected_ans in test_cases:
+        img_path = crops_dir / crop_name
+        assert img_path.exists(), f"{crop_name} must exist"
+        with open(img_path, "rb") as f:
+            files = {"image": (crop_name, f, "image/png")}
+            res = client.post("/api/v1/math/vision", files=files)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["success"] is True, f"Failed for {crop_name}: {data}"
+            assert expected_ans in data["data"]["answer"]
+            assert len(data["data"]["steps"]) == 5
 
     app.dependency_overrides.clear()
 

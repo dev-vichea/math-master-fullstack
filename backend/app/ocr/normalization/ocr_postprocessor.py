@@ -77,6 +77,18 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     text = text.replace("៖", ":")
     text = text.replace("។", " ").replace("៕", " ")
 
+    # 2a. Common Khmer OCR word and character confusion repairs
+    text = text.replace("ធ្ទៀងផ្ទាត់", "ផ្ទៀងផ្ទាត់")
+    text = re.sub(r"ឌីផេរ[៉ំ\u17b6-\u17cb]*[ង័់]*\s*[ពស្បយួលែ]+", "ឌីផេរ៉ង់ស្យែល", text)
+    text = re.sub(r"ឌីផេរ៉ង់ស្យែល\s+\d+\s+លីនេ", "ឌីផេរ៉ង់ស្យែល លីនេ", text)
+    text = re.sub(r"លីនេអ៊ែ(?!រ)", "លីនេអ៊ែរ", text)
+    text = re.sub(r"\bក្នង\b", "ក្នុង", text)
+    # OCR confusion where italic function 'f' in prose is misrecognized as slash '/'
+    text = re.sub(r"(?:គេឱ្យ|គេឲ្យ)\s*[/]\s*", "គេឱ្យ f ", text)
+    text = re.sub(r"[/]\s*ជាអនុគមន៍", "f ជាអនុគមន៍", text)
+    text = re.sub(r"(?<=\u17a2\u1793\u17bb\u1782\u1798\u1793\u17cd)\s*[/]\s*", " f ", text)
+    text = re.sub(r"(អនុគមន៍)\s*[/]\s*", r"\1 f ", text)
+
     # 2b. Convert Unicode integral symbols
     text = text.replace("∫", r"\int ").replace("∬", r"\iint ").replace("∭", r"\iiint ")
 
@@ -223,8 +235,23 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     text = re.sub(r"\\nonumber\b", "", text)
     # compound derivative exponents first: y^{*+\zeta} -> y' + y
     text = re.sub(r"y\s*\^\s*\{?\s*(?:\*|\\ast|\'|’)\s*\+\s*(?:\\zeta|\\xi|y|\{y\}|[a-zA-Z])\s*\}?", "y' + y", text)
-    text = re.sub(r"\{?y\}?\s*\^\s*\{?(?:\\ast|\*|1|\\dagger|\\prime|\')\}?", "y'", text)
+    # Second derivatives first: y^{\prime\prime}, y^{\prime \prime}, y'', y", y^{\prime ^{\dagger}} -> y''
+    text = re.sub(r"\{?y\}?\s*\^\s*\{?\s*\\prime\s*(?:\^\{?\s*\\dagger\}?|\\dagger)\s*\}?", "y''", text)
+    text = re.sub(r"\{?y\}?\s*\^\s*\{?\s*(?:\\prime\s*\\prime|\\prime\\prime|\'\s*\'|[\"”\u201d])\s*\}?", "y''", text)
+    text = re.sub(r"y\s*[\'’\u2019]{2}|y\s*[\"”\u201d]", "y''", text)
+    # In 2nd order context: y^{*} ... y^{*} ... y = 0 -> first is y'', second is y'
+    text = re.sub(
+        r"(\b\{?y\}?\s*\^\s*\{?(?:\*|\\ast)\s*\}?)(?=\s*[-+]\s*[0-9a-zA-Z\\]*y\s*\^\s*\{?(?:\*|\\ast|\'|\\prime)\s*\}?.*?[+\-]\s*[0-9a-zA-Z\\]*y\s*=)",
+        "y''",
+        text,
+    )
+    # Single derivatives: y^{\prime}, y', y^*, y^\dagger, y^1 -> y'
+    text = re.sub(r"\{?y\}?\s*\^\s*\{?(?:\\ast|\*|1|\\dagger|\\prime|\'|’)\s*\}?", "y'", text)
     text = re.sub(r"y\s*[\'’\u2019]", "y'", text)
+    # If y' ... y' ... y = 0, first y' should be y''
+    text = re.sub(r"(?<![a-zA-Z])y\'(?=\s*[-+]\s*[0-9a-zA-Z\\]*y\'\s*[-+].*?y\s*=)", "y''", text)
+    # Trailing misread Khmer punctuation '។' as 'i', '!', '|', or 'i ' after a digit in initial conditions (e.g. y'(0) = 3 i)
+    text = re.sub(r"(y\'?\s*\([^\)]+\)\s*=\s*[-+]?\d+)\s*[i!|។](?=\s*$|\s*[,;\n])", r"\1", text)
     text = re.sub(r"([0-9a-zA-Z\)])\s*v\'", r"\1y'", text)
     text = re.sub(r"\bv\'\b", "y'", text)
     text = re.sub(r"(?<!\\frac)(?<!\})\s*\{y\}", " y", text)

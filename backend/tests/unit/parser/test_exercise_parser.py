@@ -87,3 +87,48 @@ def test_sub_exercises_english():
     assert parsed.sub_exercises[0].expression == "2x+5=15"
     assert parsed.sub_exercises[1].label == "b"
     assert parsed.sub_exercises[1].expression == "x^2-4=0"
+
+
+def test_autonomous_numbered_instruction_and_subproblem():
+    """Verify that a numbered instruction line with OCR artifacts is not mistaken for a sub-exercise."""
+    text = (
+        r"1. ធ្ទៀងផ្ទាត់ថាអនុគមន៍ / ជាចម្លើយនៃសមីការឌីផេរំង័ពស្បួលដែលគេឱ្យនៅខាងស្ដាំ : "
+        r"ក. f(x) = (2x+1)e^{-x} , y^{\prime\prime}+2y^{\prime}+y = 0"
+    )
+    parsed = parse_exercise(text)
+
+    # Must NOT have a sub-exercise with label '1' or expression '/'
+    assert all(sub.expression != "/" for sub in parsed.sub_exercises)
+    assert len(parsed.sub_exercises) == 1
+    assert parsed.sub_exercises[0].label == "ក"
+    assert "y''" in parsed.sub_exercises[0].expression
+    assert "f(x)" in parsed.sub_exercises[0].expression
+    assert parsed.primary_expression == parsed.sub_exercises[0].expression
+    assert "ផ្ទៀងផ្ទាត់" in (parsed.instruction or "")
+
+
+def test_autonomous_unknown_instruction_without_math():
+    """Verify system autonomously treats a leading non-math line as instruction header even with unknown words."""
+    text = "1. ពាក្យណែនាំទូទៅមិនស្គាល់ខ្លះៗ : ក. 3x + 6 = 12"
+    parsed = parse_exercise(text)
+
+    assert len(parsed.sub_exercises) == 1
+    assert parsed.sub_exercises[0].label == "ក"
+    assert parsed.sub_exercises[0].expression == "3x+6=12"
+
+
+def test_clean_math_only_removes_khmer_and_extracts_minimal_math():
+    from app.parser.exercise_parser.exercise_parser import clean_math_only
+
+    raw = r"គណនាដេរីវេនៃអនុគមន៍ខាងក្រោម : ឌ, = - - - .(x - - + 3x + 1)"
+    cleaned = clean_math_only(raw)
+    assert not any("\u1780" <= c <= "\u17ff" for c in cleaned)
+    assert "(x" in cleaned and "3x" in cleaned
+
+    derivative_raw = r"គណនាដេរីវេនៃអនុគមន៍ខាងក្រោម ៈ ឃ. y = \frac{1}{(x^2 + 3x + 1)^2}"
+    cleaned_deriv = clean_math_only(derivative_raw)
+    assert cleaned_deriv == r"y = \frac{1}{(x^2 + 3x + 1)^2}"
+
+    aligned_raw = r"\begin{aligned} & \text{គណនា } \\ & y = 2x^2 - x + 1 \end{aligned}"
+    assert clean_math_only(aligned_raw) == "y = 2x^2 - x + 1"
+

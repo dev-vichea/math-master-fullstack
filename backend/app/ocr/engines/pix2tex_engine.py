@@ -213,16 +213,41 @@ class Pix2TexVisionEngine(MathVisionEngine):
     - Designed specifically for isolated math formulas, not prose or Khmer words
     """
 
-    def __init__(self, model_instance: Any | None = None):
+    def __init__(self, model_instance: Any | None = None, weights_path: str | Any | None = None):
+        import os
+        from pathlib import Path
+
         self._model = model_instance
+        self.weights_path = weights_path or os.getenv("PIX2TEX_WEIGHTS_PATH")
+        if self.weights_path is None:
+            candidate = (
+                Path(__file__).resolve().parent.parent.parent
+                / "training"
+                / "pix2tex"
+                / "models"
+                / "weights.pth"
+            )
+            if candidate.exists():
+                self.weights_path = str(candidate)
 
     @property
     def model(self) -> Any:
         """Lazy load model weights so app startup remains fast."""
         if self._model is None:
+            from pathlib import Path
+            from munch import Munch
             from pix2tex.cli import LatexOCR
 
-            self._model = LatexOCR()
+            if self.weights_path and Path(self.weights_path).exists():
+                args = Munch({
+                    "config": "settings/config.yaml",
+                    "checkpoint": str(self.weights_path),
+                    "no_cuda": True,
+                    "no_resize": False,
+                })
+                self._model = LatexOCR(arguments=args)
+            else:
+                self._model = LatexOCR()
         return self._model
 
     @staticmethod

@@ -11,7 +11,9 @@ Handles:
 from app.parser.exercise_parser.exercise_parser import (
     ParsedExercise,
     SubExercise,
+    clean_math_only,
     parse_exercise,
 )
 
-__all__ = ["parse_exercise", "ParsedExercise", "SubExercise"]
+__all__ = ["parse_exercise", "clean_math_only", "ParsedExercise", "SubExercise"]
+

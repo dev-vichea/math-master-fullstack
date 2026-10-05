@@ -100,7 +100,23 @@ def classify_problem(parsed: ParsedMath) -> str:
     if not parsed.is_equation:
         return "algebraic_expression" if parsed.symbols else "arithmetic_expression"
 
-    eq = parsed.sympy_expr  # a sympy.Eq
+    eq = parsed.sympy_expr  # a sympy.Eq or sympy.Tuple
+
+    if isinstance(eq, (sympy.Tuple, list, tuple)):
+        if (
+            getattr(parsed, "metadata", {}).get("is_differential_equation")
+            or any(isinstance(e, Eq) and (e.has(Derivative) or "y'" in str(e)) for e in eq)
+            or any("y'" in str(e) for e in eq)
+        ):
+            return "calculus_differential_equation"
+        if len(eq) == 2 and len(parsed.symbols) == 2:
+            return "system_linear_2x2"
+        elif len(eq) == 3 and len(parsed.symbols) == 3:
+            return "system_linear_3x3"
+        return "system_equations"
+
+    if not isinstance(eq, Eq):
+        return "algebraic_expression" if parsed.symbols else "arithmetic_expression"
 
     if len(parsed.symbols) == 0:
         return "numeric_equation"  # e.g. "5 = 5" — a statement, not a solve

@@ -233,15 +233,47 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
     # Ensure fraction denominators have braces: \frac{u}y -> \frac{u}{y}
     text = re.sub(r"\\frac\s*\{([^}]+)\}\s*([a-zA-Z0-9])\b", r"\\frac{\1}{\2}", text)
 
-    # Check if text contains differential equation markers
+    # Check if text contains differential equation markers or is an instruction to form ODE from solution
+    form_ode_marker = bool(
+        re.search(r"រកសមីការឌីផេរ៉ង់ស្យែល|find.*differential|form.*differential", text, re.IGNORECASE)
+        and re.search(r"ជាចម្លើយ|as.*solution", text, re.IGNORECASE)
+    )
     ode_marker = re.search(
-        r"(?:y[\'’]|y\s*\^\s*\{?\\+prime\}?|\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y?\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}|\bdy/dx\b)",
+        r"(?:y[\'’]{1,2}|y\s*\^\s*\{?\\+prime(?:\\+prime)?\}?|y[\"”\u201d]|\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y?\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}|\bdy/dx\b)",
         text,
     )
-    if not ode_marker:
+    if not ode_marker and not form_ode_marker:
         return None
 
     try:
+        if form_ode_marker and not ode_marker:
+            # Extract function definition: e.g. f(x) = ... or y = ...
+            f_match = re.search(r"(?:[a-zA-Z](?:_[0-9a-zA-Z]+)?\s*\(\s*([a-zA-Z])\s*\)|y)\s*=\s*(.+)$", text)
+            if f_match:
+                var_str = f_match.group(1) or "x"
+                rhs_raw = f_match.group(2).strip()
+                var_sym = Symbol(var_str)
+                if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                    rhs_sp = _standardize_symbols(latex2sympy(_clean_latex_text(rhs_raw)))
+                else:
+                    rhs_sp = _standardize_symbols(parse_expr(rhs_raw, transformations=_TRANSFORMATIONS))
+                fn_expr = Eq(Function("f")(var_sym), rhs_sp)
+                return ParsedMath(
+                    raw_text=raw_expression,
+                    is_equation=True,
+                    sympy_expr=fn_expr,
+                    symbols=[var_sym],
+                    metadata={
+                        "is_differential_equation": True,
+                        "is_form_ode": True,
+                        "order": 2,
+                        "function_rhs": rhs_sp,
+                        "independent_var": var_sym,
+                        "dependent_var": Symbol("y"),
+                        "raw_ode_str": text,
+                    },
+                )
+
         # 1. Extract domain annotation (e.g. កំណត់លើ (-1, 1))
         dom_pat = re.compile(
             r"(?:\\text\{\s*)?កំណត់លើ(?:\s*\}|\s+)*(\([^\)]+\)|\[[^\]]+\])\s*\}?",
@@ -254,8 +286,27 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
             text = text[: m_dom.start()] + text[m_dom.end() :]
             text = text.strip()
 
-        # 2. Extract initial condition (e.g. , y(1) = 4 or , y(\pi/2) = e)
+        # 2. Extract initial conditions (e.g. , y(1) = 4 or , y'(0) = 2)
         ics_tuple = None
+        ics_prime_tuple = None
+
+        m_ic_prime = re.search(
+            r"[,;]\s*\{?y\}?[\'’]\s*\((.*?)\)\s*=\s*([^,;]+)",
+            text,
+        )
+        if m_ic_prime:
+            x1_raw = m_ic_prime.group(1).strip()
+            y1_raw = m_ic_prime.group(2).strip()
+            text = text[: m_ic_prime.start()] + text[m_ic_prime.end() :]
+            text = text.strip()
+            if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
+                x1_sp = _standardize_symbols(latex2sympy(_clean_latex_text(x1_raw)))
+                y1_sp = _standardize_symbols(latex2sympy(_clean_latex_text(y1_raw)))
+            else:
+                x1_sp = _standardize_symbols(parse_expr(x1_raw, transformations=_TRANSFORMATIONS))
+                y1_sp = _standardize_symbols(parse_expr(y1_raw, transformations=_TRANSFORMATIONS))
+            ics_prime_tuple = (x1_sp, y1_sp)
+
         m_ics = re.search(
             r"[,;]\s*\{?y\}?\s*\((.*?)\)\s*=\s*([^,;]+)",
             text,
@@ -272,23 +323,32 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
                 y0_sp = _standardize_symbols(parse_expr(y0_raw, transformations=_TRANSFORMATIONS))
             ics_tuple = (x0_sp, y0_sp)
 
-        # 3. Check for verification pair: y = f(x) , F(x, y, y') = 0
+        # 3. Check for verification pair: y = f(x) or f(x) = ... , F(x, y, y', y'') = 0
         is_verification = False
         verif_expr = None
+        fn_var = None
         if "," in text:
             parts = [p.strip() for p in text.split(",") if p.strip()]
             if len(parts) == 2:
                 p1, p2 = parts
-                if re.match(r"^\s*y\s*=\s*", p1) and not re.search(r"y[\'’]|\bdy/dx\b", p1) and re.search(r"y[\'’]|\bdy/dx\b", p2):
+                fn_lhs_pat = r"^\s*(?:y\s*(?:\([a-zA-Z]\))?|[a-zA-Z](?:_[0-9a-zA-Z]+)?\s*\([a-zA-Z]\))\s*=\s*"
+                ode_pat = r"y[\'’\"]|y\s*\^\s*\{?\\+prime|\bdy/dx\b"
+                if re.match(fn_lhs_pat, p1) and not re.search(ode_pat, p1) and re.search(ode_pat, p2):
                     is_verification = True
+                    m_fn = re.search(r"^\s*(?:y|[a-zA-Z](?:_[0-9a-zA-Z]+)?)\s*\(\s*([a-zA-Z])\s*\)\s*=", p1)
+                    if m_fn:
+                        fn_var = Symbol(m_fn.group(1))
                     verif_raw = p1.split("=", 1)[1].strip()
                     if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
                         verif_expr = _standardize_symbols(latex2sympy(_clean_latex_text(verif_raw)))
                     else:
                         verif_expr = _standardize_symbols(parse_expr(verif_raw, transformations=_TRANSFORMATIONS))
                     text = p2
-                elif re.match(r"^\s*y\s*=\s*", p2) and not re.search(r"y[\'’]|\bdy/dx\b", p2) and re.search(r"y[\'’]|\bdy/dx\b", p1):
+                elif re.match(fn_lhs_pat, p2) and not re.search(ode_pat, p2) and re.search(ode_pat, p1):
                     is_verification = True
+                    m_fn = re.search(r"^\s*(?:y|[a-zA-Z](?:_[0-9a-zA-Z]+)?)\s*\(\s*([a-zA-Z])\s*\)\s*=", p2)
+                    if m_fn:
+                        fn_var = Symbol(m_fn.group(1))
                     verif_raw = p2.split("=", 1)[1].strip()
                     if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
                         verif_expr = _standardize_symbols(latex2sympy(_clean_latex_text(verif_raw)))
@@ -301,10 +361,12 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
         t = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*y\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}", "y'", t)
         t = re.sub(r"\\frac\{\s*(?:\\mathrm\{d\}|d)\s*\}\{\s*(?:\\mathrm\{d\}|d)\s*x\s*\}\s*y", "y'", t)
         t = t.replace("’", "'").replace("‘", "'")
+        t = re.sub(r"y\^\{\\prime\s*\\prime\}|y\\prime\\prime", "y''", t)
         t = re.sub(r"y\^\{\\prime\}|y\\prime", "y'", t)
 
-        # 5. Substitute y' with dummy symbol u
-        t_mod = re.sub(r"y'", "u", t)
+        # 5. Substitute derivatives with dummy symbols (w for y'', u for y')
+        t_mod = re.sub(r"y\'\'|y[\"”\u201d]", "w", t)
+        t_mod = re.sub(r"y\'", "u", t_mod)
         if "=" in t_mod:
             lhs_str, rhs_str = t_mod.split("=", 1)
             if LATEX2SYMPY_AVAILABLE and latex2sympy is not None:
@@ -326,25 +388,46 @@ def _try_parse_differential_equation(raw_expression: str) -> ParsedMath | None:
             all_syms.update(lhs_sp.free_symbols)
         if hasattr(rhs_sp, "free_symbols"):
             all_syms.update(rhs_sp.free_symbols)
-        var_syms = [s for s in all_syms if s.name not in ("u", "y")]
-        var = var_syms[0] if var_syms else Symbol("x")
+        var_syms = [s for s in all_syms if s.name not in ("w", "u", "y")]
+        if var_syms:
+            var = var_syms[0]
+        elif fn_var is not None:
+            var = fn_var
+        elif is_verification and verif_expr is not None and getattr(verif_expr, "free_symbols", None):
+            preferred = [s for s in verif_expr.free_symbols if s.name in ("x", "t", "s", "z", "u")]
+            if preferred:
+                var = preferred[0]
+            else:
+                lowercase = [s for s in verif_expr.free_symbols if s.name.islower() and s.name not in ("e", "i")]
+                var = sorted(lowercase, key=lambda s: s.name)[0] if lowercase else Symbol("x")
+        else:
+            var = Symbol("x")
 
         y_fn = Function("y")(var)
+        w_sym = Symbol("w")
         u_sym = Symbol("u")
         y_sym = Symbol("y")
 
-        sub_map = {u_sym: Derivative(y_fn, var), y_sym: y_fn}
+        sub_map = {
+            w_sym: Derivative(y_fn, (var, 2)),
+            u_sym: Derivative(y_fn, var),
+            y_sym: y_fn,
+        }
         lhs = lhs_sp.subs(sub_map)
         rhs = rhs_sp.subs(sub_map)
         ode_eq = Eq(lhs, rhs)
 
         # 7. Metadata
+        is_second_order = w_sym in getattr(lhs_sp, "free_symbols", set()) or w_sym in getattr(rhs_sp, "free_symbols", set())
+        cauchy_val = (ics_tuple, ics_prime_tuple) if ics_prime_tuple is not None else ics_tuple
         meta = {
             "is_differential_equation": True,
+            "order": 2 if is_second_order else 1,
             "independent_var": var,
             "dependent_var": Symbol("y"),
             "initial_condition": ics_tuple,
-            "cauchy": ics_tuple,
+            "initial_condition_prime": ics_prime_tuple,
+            "cauchy": cauchy_val,
             "domain": domain,
             "is_verification": is_verification,
             "verification_func": verif_expr,
@@ -384,10 +467,16 @@ def parse_math_text(raw_expression: str) -> ParsedMath:
     if ode_parsed is not None:
         return ode_parsed
 
+    # Clean LaTeX environments like cases, aligned, array
+    cleaned_cases = re.sub(r"\\begin\{[^\}]*\}(?:\{[^\}]*\})?", "", text)
+    cleaned_cases = re.sub(r"\\end\{[^\}]*\}", "", cleaned_cases).strip()
+    if cleaned_cases != text:
+        text = cleaned_cases
+
     if text.count("=") > 1:
         parts = [
             p.strip()
-            for p in re.split(r"[,;\n]|\s*\\(?:quad|qquad)\s*|\s*\\text\{\s*(?:and|និង)\s*\}\s*", text)
+            for p in re.split(r"\\\\|[,;\n]|\s*\\(?:quad|qquad)\s*|\s*\\text\{\s*(?:and|និង)\s*\}\s*", text)
             if p.strip()
         ]
         if len(parts) > 1 and all(p.count("=") == 1 for p in parts):

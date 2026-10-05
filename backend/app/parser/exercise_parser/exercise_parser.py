@@ -31,12 +31,15 @@ _HEADER_RE = re.compile(
     r"|(?:Exercise|Problem|Question|Task|Practice|Example|Ex|Q)\.?"
     r"(?:\s*\([^)]*\))?"
     r"(?:\s*[:.-]?\s*[0-9\u17e0-\u17e9]+(?=\s*[:.-]|\s+[a-zA-Z\u1780-\u17ff]|$))?"
+    r"|[0-9\u17e0-\u17e9]+[\.៖:](?!\d)"
     r")[:៖.-]?\s*"
 )
 
 # Instructions in Khmer and English
 _INSTRUCTION_RE = re.compile(
     r"(?i)(?:"
+    r"(?:^\s*(?:[0-9\u17e0-\u17e9]{1,2}|[I|V|X]+)\s*[\.\)៖:]\s*)?"
+    r"(?:"
     r"(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?(?:definite\s+|indefinite\s+)?integrals?(?:\s+of)?(?:\s+the\s+following)?"
     r"|(?:Find|Calculate|Evaluate|Compute)\s+(?:the\s+)?antiderivatives?(?:\s+of)?(?:\s+the\s+following)?(?:\s+functions?)?"
     r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?(?:នៃ)?អាំងតេក្រាល(?:មិនកំណត់|កំណត់)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
@@ -44,9 +47,13 @@ _INSTRUCTION_RE = re.compile(
     r"|(?:Find|Calculate|Evaluate|Compute|Solve)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?limits?(?:\s+of)?(?:\s+the\s+following)?"
     r"|(?:Find|Calculate|Evaluate|Compute|Determine|Differentiate)\s+(?:each\s+of\s+)?(?:the\s+)?(?:following\s+)?derivatives?(?:\s+of)?(?:\s+the\s+following)?(?:\s+functions?)?"
     r"|(?:ចូរ)?(?:គណនា|រក)(?:នូវ)?(?:តម្លៃ)?(?:នៃ)?ដេរីវេ(?:នៃអនុគមន៍)?(?:ខាងក្រោម)?(?:នេះ)?(?:ទាំងនេះ)?(?:ដូចខាងក្រោម)?"
-    r"|(?:Solve|Find|Determine)\s+(?:the\s+)?(?:following\s+)?(?:first[- ]order\s+)?(?:linear\s+)?differential\s+equations?(?:\s+according\s+to\s+given\s+conditions?)?"
-    r"|(?:ចូរ)?ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែល(?:លីនេអ៊ែរ)?(?:លំដាប់ទី[១1])?(?:តាមលក្ខខណ្ឌដែលឲ្យ)?(?:ខាងក្រោម)?"
+    r"|(?:ចូរ)?រកសមីការឌីផេរ៉ង់ស្យែល(?:\s*លីនេអ៊ែរ)?(?:\s*លំដាប់ទី\s*[១២12មួយពីរ]+)?(?:\s*អូម៉ូសែន)?(?:\s*ដែល)?\s*មាន(?:\s*អនុគមន៍)?(?:\s*[a-zA-Z]\s*)?ជាចម្លើយ"
+    r"|(?:Find|Determine)\s+(?:the\s+)?(?:second[- ]order\s+|first[- ]order\s+)?(?:linear\s+)?(?:homogeneous\s+)?differential\s+equation(?:\s+which|\s+that)?\s+has\s+(?:function\s+)?[a-zA-Z]?\s+as\s+(?:a\s+)?solution"
+    r"|(?:Solve|Find|Determine)\s+(?:the\s+)?(?:following\s+)?(?:first[- ]order\s+|second[- ]order\s+)?(?:linear\s+)?(?:homogeneous\s+)?differential\s+equations?(?:\s+according\s+to\s+given\s+conditions?)?"
+    r"|(?:ចូរ)?ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែល(?:\s*លីនេអ៊ែរ)?(?:\s*លំដាប់ទី\s*[១២12មួយពីរ]+)?(?:\s*អូម៉ូសែន)?(?:តាមលក្ខខណ្ឌដែលឲ្យ)?(?:ខាងក្រោម)?"
+    r"|(?:ចូរ)?(?:ផ្ទៀងផ្ទាត់|បង្ហាញ)(?:ថា)?(?:អនុគមន៍)?(?:\s*[a-zA-Z]\s*)?(?:នីមួយៗ)?ជាចម្លើយ(?:នៃ)?សមីការឌីផេរ៉ង់ស្យែល(?:ដែលគេ(?:ឱ្យ|ឲ្យ)នៅខាងស្ដាំ|ខាងក្រោម)?"
     r"|(?:ចូរ)?បង្ហាញថាអនុគមន៍(?:នីមួយៗ)?ជាចម្លើយនៃសមីការឌីផេរ៉ង់ស្យែល(?:ខាងក្រោម)?"
+    r"|(?:Verify|Show)\s+that\s+(?:each\s+)?(?:of\s+the\s+following\s+)?functions?(?:\s+[a-zA-Z])?\s+(?:is|are)\s+(?:a\s+)?solutions?\s+(?:to|of)\s+the\s+differential\s+equation(?:\s+given\s+on\s+the\s+right)?"
     r"|Show\s+that\s+(?:each\s+)?(?:of\s+the\s+following\s+)?functions?\s+(?:is|are)\s+(?:a\s+)?solutions?\s+(?:to|of)\s+the\s+differential\s+equation"
     r"|Find\s+(?:the\s+)?value\s+of\s+[a-zA-Z]\s*(?:if|in|when|where|:)?"
     r"|Solve\s+for\s+[a-zA-Z]\s*(?:if|in|when|where|:)?"
@@ -80,31 +87,31 @@ _INSTRUCTION_RE = re.compile(
     r"|ចូរគណនា"
     r"|(?:ចូរ)?(?:សម្រួល|ធ្វើឲ្យសាមញ្ញ|បង្រួម)(?:នូវ)?(?:កន្សោម)?(?:ខាងក្រោម)?"
     r"|(?:ចូរ)?(?:ដាក់ជាផលគុណកត្តា|ពន្លាត)(?:នូវ)?(?:កន្សោម)?(?:ខាងក្រោម)?"
-    r"|(?:ចូរ)?(?:កំណត់|ផ្ទៀងផ្ទាត់|ទាញរក|ចាត់ថ្នាក់|បកស្រាយ|ផ្តល់ហេតុផល)"
+    r"|(?:ចូរ)?(?:កំណត់(?!លើ)|ផ្ទៀងផ្ទាត់|ទាញរក|ចាត់ថ្នាក់|បកស្រាយ|ផ្តល់ហេតុផល)"
     r"|(?:ចូរ)?សរសេរ\s*[a-zA-Z0-9_]*\s*ជាអនុគមន៍នៃ\s*[a-zA-Z0-9_]*"
-    r")[:៖\s]*"
+    r"))[:៖\s]*"
 )
 
-# Sub-problem numbering (e.g. 'ក.', 'ក)', 'ខ.', 'a)', '1.', '(a)', '(1)', '\mathcal{Q}.')
+# Sub-problem numbering (e.g. 'ក.', 'ក)', 'ខ.', 'a)', '1.', '(a)', '(1)', 'ឌ,', '\mathcal{Q}.')
 _SUBITEM_RE = re.compile(
     r"(?i)(?:"
     r"(?:^|(?<=[\n,;៖:]))\s*\(([a-zA-Z]|[0-9]{1,2}|[\u1780-\u17a2]|[\u17e0-\u17e9]{1,2})\)\s*"
-    r"|(?:^|(?<=[\n,;៖:]))\s*(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{([a-zA-Z0-9\u1780-\u17a2]+)\}|([ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2}))[\)៖:]\s*"
+    r"|(?:^|(?<=[\n,;៖:]))\s*(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{([a-zA-Z0-9\u1780-\u17a2]+)\}|([ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2}))[\)៖:,]\s*"
     r"|(?:^|(?<=[\n,;៖:\s]))\s*(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{([a-zA-Z0-9\u1780-\u17a2]+)\}|([ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2}))\.(?!\d)\s*"
     r")"
 )
 
-# Single isolated leading label prefix (e.g. 'ក.', '1.', '(a)', '\mathcal{Q}.')
+# Single isolated leading label prefix (e.g. 'ក.', '1.', '(a)', 'ឌ,', '\mathcal{Q}.')
 _LEADING_LABEL_RE = re.compile(
     r"^\s*(?:"
-    r"\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)[\.៖:]?"
-    r"|(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{[^{}]*(?:\{[^{}]*\})*\}|[ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2})[\)\.៖:](?!\d)"
+    r"\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)[\.៖:,]?"
+    r"|(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{[^{}]*(?:\{[^{}]*\})*\}|[ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2})[\)\.៖:,](?!\d)"
     r")\s*"
 )
 
 # Mathematical expression regex
 _EXPRESSION_RUN = re.compile(r"[0-9a-zA-Z.\+\-\*/\^=()\[\]\s<>=≤≥\\{}_'’|,]{3,}")
-_MULTI_LETTER_WORD = re.compile(r"(?<!\\)\b[a-zA-Z]{2,}\b")
+_MULTI_LETTER_WORD = re.compile(r"(?<!\\)\b[a-zA-Z]{2,}\b(?![_^\'’\"])")
 
 # Math function and LaTeX names that must never be stripped as prose words
 _MATH_KEYWORDS = {
@@ -142,19 +149,89 @@ _MATH_KEYWORDS = {
     "dy",
     "dt",
     "dz",
+    "cases",
+    "begin",
+    "end",
+    "aligned",
+    "array",
+    "matrix",
+}
+
+
+_COMMON_PROSE_WORDS = {
+    "find", "solve", "evaluate", "calculate", "compute", "determine", "simplify",
+    "prove", "show", "verify", "deduce", "express", "factor", "factorise",
+    "expand", "sketch", "plot", "each", "the", "following", "functions", "function",
+    "equation", "equations", "which", "that", "has", "have", "solution", "solutions",
+    "value", "values", "if", "in", "when", "where", "with", "and", "or", "for", "from",
+    "at", "by", "as", "given", "is", "are", "then", "let", "suppose", "assume",
+    "problem", "exercise", "question", "task", "practice", "example",
 }
 
 
 def _strip_non_math_words(text: str) -> str:
-    """Strip English prose words while preserving recognized mathematical functions."""
+    """Strip English prose words while preserving recognized mathematical functions and variable products (e.g. xy, ab)."""
 
     def _rep(m: re.Match) -> str:
-        word = m.group(0)
-        if word.lower() in _MATH_KEYWORDS:
-            return word
-        return " "
+        word = m.group(0).lower()
+        if word in _MATH_KEYWORDS:
+            return m.group(0)
+        if word in _COMMON_PROSE_WORDS or len(word) >= 4:
+            return " "
+        return m.group(0)
 
     return _MULTI_LETTER_WORD.sub(_rep, text)
+
+
+def _is_valid_math_expression(text: str | None) -> bool:
+    """
+    Autonomously validate whether a text string contains a solvable mathematical expression,
+    equation, or operation rather than prose, solitary punctuation, or lone variable symbols.
+    """
+    if not text:
+        return False
+    clean = text.strip()
+    if not clean:
+        return False
+
+    # Solitary punctuation, slashes, or arithmetic operators cannot be a math problem
+    if clean in {"/", "\\", "+", "-", "*", "=", "^", ":", ";", ",", ".", "!", "?", "(", ")", "[", "]"}:
+        return False
+
+    # Must contain alphanumeric characters
+    if not re.search(r"[0-9a-zA-Z\u1780-\u17ff]", clean):
+        return False
+
+    # A single isolated Latin letter (like 'f', 'x', 'y') is a variable or function label, not a complete problem
+    if re.fullmatch(r"[a-zA-Z]", clean):
+        return False
+
+    # If there are NO digits in the expression:
+    has_digits = bool(re.search(r"\d", clean))
+    if not has_digits:
+        # A purely symbolic math expression MUST contain recognized math operations or relations:
+        # e.g., equations ('='), inequalities ('<', '>'), derivatives ('y\'', 'dy/dx'),
+        # algebraic operators ('+', '-', '*', '/', '^'), or LaTeX math commands (\frac, \sqrt, \int, \lim, etc.)
+        has_math_operator = bool(
+            re.search(
+                r"[=+\-*/\^<>≤≥]|\\(?:frac|sqrt|int|lim|sum|prod|sin|cos|tan|cot|ln|log|exp|cdot|times|pm|mp)\b|y[\'’\"]",
+                clean,
+            )
+        )
+        if not has_math_operator:
+            return False
+
+    # Ensure operators have operands and are not just stray syntax (e.g. "x /" or "/ x" or "+ -")
+    if re.fullmatch(r"[\s+\-*/^=<>]+", clean):
+        return False
+
+    # If it contains Khmer characters without equations or recognized math structures, it's prose
+    has_khmer = bool(re.search(r"[\u1780-\u17ff]", clean))
+    if has_khmer and "=" not in clean and r"\int" not in clean and r"\lim" not in clean:
+        if not re.search(r"\d+\s*[\+\-\*/\^]\s*\d+", clean):
+            return False
+
+    return True
 
 
 @dataclass
@@ -176,6 +253,66 @@ class ParsedExercise:
     sub_exercises: list[SubExercise] = field(default_factory=list)
 
 
+def clean_math_only(text: str | None) -> str:
+    """
+    Ensure the mathematical expression contains strictly minimal math only:
+    - Strips all Khmer characters ([\\u1780-\\u17FF\\u19E0-\\u19FF]) and punctuation
+    - Strips exercise headers, instructions, and labels (e.g. 1., a), ឌ,, ឃ.)
+    - Strips LaTeX \\text{...} wrappers containing prose
+    - Cleans OCR dash artifacts (e.g. ---, - - -) and stray delimiters
+    - Strips leading / trailing stray punctuation
+    """
+    if not text:
+        return ""
+
+    s = text.strip()
+    # 1. Unwrap outer environments like \\begin{aligned} ... \\end{aligned} or \\begin{gathered}
+    s = re.sub(r"^\s*\\begin\{(?:aligned|gathered)\}\s*(?:&|\s)*", "", s)
+    s = re.sub(r"\s*\\end\{(?:aligned|gathered)\}\s*$", "", s)
+    s = re.sub(r"^&+\s*", "", s)
+
+    # 2. Strip instructions and headers
+    s = _HEADER_RE.sub(" ", s)
+    s = _INSTRUCTION_RE.sub(" ", s)
+
+    # 3. Strip any LaTeX text commands containing Khmer or prose words
+    s = re.sub(r"\\(?:text|mathrm|mathbf|textbf|textit)\{[^{}]*[\u1780-\u17ff][^{}]*\}", " ", s)
+    s = re.sub(r"\\(?:text|mathrm|mathbf|textbf|textit)\{\s*\}", " ", s)
+
+    # 4. Strip ALL Khmer characters and Khmer punctuation
+    s = re.sub(r"[\u1780-\u17FF\u19E0-\u19FF\u17D4-\u17DA]", " ", s)
+
+    # 5. Clean LaTeX spacing tokens
+    s = re.sub(r"\\+([;,!:])", " ", s)
+    s = re.sub(r"\\(?:quad|qquad|hfill|vfill|thickspace|medspace|thinspace)\b", " ", s)
+
+    # 6. Strip leading labels e.g. '1.', 'a)', 'A.', 'ឃ.', 'ឌ,'
+    s = re.sub(
+        r"^\s*(?:\([a-zA-Z0-9]{1,2}\)[\.៖:,]?|[a-zA-Z0-9]{1,2}[\)\.៖:,](?!\d))\s*",
+        "",
+        s,
+    )
+    s = re.sub(r"^\s*(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{[^{}]*\}[\)\.៖:,]?)\s*", "", s)
+
+    # 7. Clean repeated OCR dashes (e.g. - - - or ---)
+    s = re.sub(r"(?:-\s*){2,}", " ", s)
+
+    # 8. Clean leading line breaks and alignment tokens left over from empty text lines
+    s = re.sub(r"^(?:\\\\|&|\s)+", "", s)
+
+    # 9. Clean solitary leading punctuation like , = or : = or .
+    s = re.sub(r"^[\s,;:.]+", "", s)
+    if s.startswith("=") and not re.search(r"^[a-zA-Z]\s*=", s):
+        s = s.lstrip("= \t")
+    s = re.sub(r"^[\s,;:.]+", "", s)
+
+    # 10. Clean trailing OCR noise (stray dots, commas, solitary 'i' at end)
+    s = re.sub(r"[\s,;:.|~]+$", "", s)
+    s = re.sub(r"(?<=\d|\)|\]|\})\s+i\s*$", "", s)
+
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def _extract_single_math_expression(text: str) -> str | None:
     """Extract a single clean math expression string from text segment."""
     # First, strip common prompt clauses that contain target variable letters
@@ -191,7 +328,7 @@ def _extract_single_math_expression(text: str) -> str | None:
     # Clean LaTeX spacing tokens like \; \, \! \: \quad \qquad \hfill so they don't split candidate math runs
     cleaned = re.sub(r"\\+([;,!:])", " ", cleaned)
     cleaned = re.sub(r"\\(?:quad|qquad|hfill|vfill)", " ", cleaned)
-    cleaned = re.sub(r"\\[\s]+", " ", cleaned)
+    cleaned = re.sub(r"(?<!\\)\\[ \t]+", " ", cleaned)
 
     candidates = _EXPRESSION_RUN.findall(cleaned)
     if not candidates:
@@ -224,6 +361,10 @@ def _extract_single_math_expression(text: str) -> str | None:
     best = best.strip(".:;=, \u17d4\u17d5")
     while best.endswith("\\"):
         best = best[:-1].rstrip(".:;=, \u17d4\u17d5")
+
+    if not _is_valid_math_expression(best):
+        return None
+
     return best or None
 
 
@@ -242,10 +383,21 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
             sub_exercises=[],
         )
 
-    # 1. OCR sanitization + Khmer normalization
+    # 1. OCR sanitization + LaTeX text unwrapping + Khmer normalization
     pre_cleaned = raw_text.replace(r"\operatorname*{lim}", r"\lim").replace(
         r"\operatorname{lim}", r"\lim"
     )
+    # Unwrap LaTeX text commands (e.g. \text{គណនា } -> គណនា)
+    _latex_text_re = r"\\(?:text|mathrm|mathbf|textbf|textit)\{([^{}]+)\}"
+    pre_cleaned = re.sub(_latex_text_re, r" \1 ", pre_cleaned)
+    pre_cleaned = re.sub(_latex_text_re, r" \1 ", pre_cleaned)
+
+    # Unwrap multi-line environments (\begin{gathered}, \begin{aligned}, etc.)
+    pre_cleaned = re.sub(r"\\(?:begin|end)\{(?:gathered|aligned|matrix|array|cases)\}(?:\{[^}]*\})?", " ", pre_cleaned)
+    # Strip LaTeX alignment tokens (&) and spacing commands (\quad, \qquad)
+    pre_cleaned = re.sub(r"\\(?:quad|qquad|thickspace|medspace|thinspace)\b", " ", pre_cleaned)
+    pre_cleaned = pre_cleaned.replace("&", " ")
+
     sanitized = sanitize_ocr_math_text(pre_cleaned)
     normalized = normalize_khmer_text(sanitized)
 
@@ -270,7 +422,7 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
             end_idx = sub_matches[i + 1].start() if i + 1 < len(sub_matches) else len(body_text)
             sub_raw = body_text[start_idx:end_idx].strip()
             sub_expr = _extract_single_math_expression(sub_raw)
-            if sub_expr:
+            if sub_expr and _is_valid_math_expression(sub_expr):
                 sub_intent = _intent_classifier.classify(sub_raw)
                 sub_exercises.append(
                     SubExercise(
@@ -280,29 +432,42 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
                         intent=sub_intent.value,
                     )
                 )
+            elif not sub_exercises and not instruction:
+                # If the first sub-item has no valid math expression, it was an instruction header!
+                instruction = sub_raw.strip(" \t\r\n:៖.-")
     elif len(sub_matches) == 1:
         match = sub_matches[0]
-        if match.start() <= 2:
-            label = next((g for g in match.groups() if g is not None), "")
-            sub_raw = body_text[match.end() :].strip()
-            sub_expr = _extract_single_math_expression(sub_raw)
-            if sub_expr:
-                sub_intent = _intent_classifier.classify(sub_raw)
-                sub_exercises.append(
-                    SubExercise(
-                        label=label,
-                        raw_text=sub_raw,
-                        expression=sub_expr,
-                        intent=sub_intent.value,
-                    )
+        label = next((g for g in match.groups() if g is not None), "")
+        prefix_text = body_text[: match.start()].strip(" \t\r\n:៖.-")
+        if prefix_text and not instruction:
+            instruction = prefix_text
+        sub_raw = body_text[match.end() :].strip()
+        sub_expr = _extract_single_math_expression(sub_raw)
+        if sub_expr and _is_valid_math_expression(sub_expr):
+            sub_intent = _intent_classifier.classify(sub_raw)
+            sub_exercises.append(
+                SubExercise(
+                    label=label,
+                    raw_text=sub_raw,
+                    expression=sub_expr,
+                    intent=sub_intent.value,
                 )
-                body_text = sub_raw
+            )
+            body_text = sub_raw
+        elif not instruction:
+            instruction = sub_raw.strip(" \t\r\n:៖.-")
 
     # 5. Determine primary expression
     if sub_exercises:
+        for s in sub_exercises:
+            s.expression = clean_math_only(s.expression)
         primary_expr = sub_exercises[0].expression
     else:
-        primary_expr = _extract_single_math_expression(body_text)
+        candidate_primary = _extract_single_math_expression(body_text)
+        primary_expr = candidate_primary if _is_valid_math_expression(candidate_primary) else None
+
+    if primary_expr:
+        primary_expr = clean_math_only(primary_expr)
 
     # 6. Determine overall intent
     overall_intent = _intent_classifier.classify(normalized)

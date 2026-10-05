@@ -15,7 +15,22 @@ import re
 from typing import Any
 
 import sympy
-from sympy import Derivative, Eq, Function, Symbol, exp, factor, integrate, latex, log, simplify
+from sympy import (
+    Derivative,
+    Eq,
+    Function,
+    Rational,
+    Symbol,
+    cos,
+    exp,
+    factor,
+    integrate,
+    latex,
+    log,
+    simplify,
+    sin,
+    sqrt,
+)
 
 from app.api.schemas.responses import SolutionStep
 from app.knowledge.lessons.differentials import detect_differential_method
@@ -42,7 +57,7 @@ def _to_latex(expr_or_str: Any) -> str:
 
 
 class DifferentialStepGenerator(StepGenerator):
-    """Generates pedagogical step-by-step solutions for first-order differential equations."""
+    """Generates pedagogical step-by-step solutions for first-order and second-order differential equations."""
 
     problem_type = "calculus_differential_equation"
 
@@ -69,6 +84,25 @@ class DifferentialStepGenerator(StepGenerator):
         # Case 5: Solution Verification
         if metadata.get("is_verification"):
             return self._generate_verification_steps(equation, symbol, parsed)
+
+        # Case 6: Form ODE from Solution
+        d2y = Derivative(Function("y")(symbol), (symbol, 2))
+        dy = Derivative(Function("y")(symbol), symbol)
+        has_derivatives = False
+        if hasattr(equation, "lhs") and hasattr(equation, "rhs"):
+            diff_terms = equation.lhs - equation.rhs
+            if diff_terms.has(d2y) or diff_terms.has(dy):
+                has_derivatives = True
+        elif equation.has(dy) or equation.has(d2y):
+            has_derivatives = True
+
+        if metadata.get("is_form_ode") or not has_derivatives:
+            return self._generate_form_ode_steps(equation, symbol, solution, parsed)
+
+        # Case 4: Second-Order Linear Homogeneous ODE
+        diff = equation.lhs - equation.rhs if hasattr(equation, "lhs") else equation
+        if diff.coeff(d2y) != 0 or metadata.get("order") == 2:
+            return self._generate_second_order_steps(equation, symbol, solution, parsed)
 
         # Classify ODE type
         ode_type = self._classify_ode_type(equation, symbol)
@@ -534,57 +568,101 @@ class DifferentialStepGenerator(StepGenerator):
         dy = Derivative(y_fn, symbol)
 
         vfunc_latex = _to_latex(vfunc)
-        ode_latex = _to_latex(equation).replace(r"\frac{d}{d x} y{\left(x \right)}", "y'")
-        ode_latex = ode_latex.replace(r"y{\left(x \right)}", "y")
+        def _clean_ode_latex(target_expr: Any) -> str:
+            s = _to_latex(target_expr)
+            s = re.sub(r"\\frac\{d\^\{?2\}?\}\{d [a-zA-Z]\^\{?2\}?\}\s*y(?:\{\\left\([a-zA-Z\s]+\\right\)\})?", "y''", s)
+            s = re.sub(r"\\frac\{d\}\{d [a-zA-Z]\}\s*y(?:\{\\left\([a-zA-Z\s]+\\right\)\})?", "y'", s)
+            s = re.sub(r"y([\x27\x22]+)(?:\{\\left\([a-zA-Z\s]+\\right\)\}|\{\s*\([a-zA-Z\s]+\)\s*\}|\([a-zA-Z]\))", r"y\1", s)
+            s = re.sub(r"y(?:\{\\left\([a-zA-Z\s]+\\right\)\}|\{\s*\([a-zA-Z\s]+\)\s*\}|\([a-zA-Z]\))", "y", s)
+            return s
+
+        ode_latex = _clean_ode_latex(equation)
+        d2y = Derivative(y_fn, (symbol, 2))
+        has_second_order = equation.has(d2y) or any(
+            isinstance(a, Derivative) and a.derivative_count == 2 for a in equation.atoms(Derivative)
+        )
 
         steps: list[SolutionStep] = []
 
-        # Step 1: Compute derivative of given function
+        # Step 1: Compute derivatives of given function
         y_prime_val = simplify(sympy.diff(vfunc, symbol))
         y_prime_latex = _to_latex(y_prime_val)
 
-        steps.append(
-            SolutionStep(
-                order=1,
-                title_km="គណនាដេរីវេនៃអនុគមន៍ដែលឲ្យ",
-                title_en="Compute Derivative of Given Function",
-                description_km=(
-                    f"គេមានអនុគមន៍ $y = {vfunc_latex}$\n"
-                    f"គណនាដេរីវេទី១ គេបាន៖\n"
-                    f"$y' = ({vfunc_latex})' = {y_prime_latex}$"
-                ),
-                description_en=(
-                    f"Given function $y = {vfunc_latex}$\n"
-                    f"Computing first derivative:\n"
-                    f"$y' = ({vfunc_latex})' = {y_prime_latex}$"
-                ),
-                expression=f"y' = {y_prime_latex}",
+        if has_second_order:
+            y_second_val = simplify(sympy.diff(vfunc, symbol, 2))
+            y_second_latex = _to_latex(y_second_val)
+            steps.append(
+                SolutionStep(
+                    order=1,
+                    title_km="គណនាដេរីវេទី១ និងទី២ នៃអនុគមន៍ដែលឲ្យ",
+                    title_en="Compute First and Second Derivatives of Given Function",
+                    description_km=(
+                        f"គេមានអនុគមន៍ $y = {vfunc_latex}$\n"
+                        f"គណនាដេរីវេទី១៖ $y' = ({vfunc_latex})' = {y_prime_latex}$\n"
+                        f"គណនាដេរីវេទី២៖ $y'' = ({y_prime_latex})' = {y_second_latex}$"
+                    ),
+                    description_en=(
+                        f"Given function $y = {vfunc_latex}$\n"
+                        f"Computing first derivative: $y' = ({vfunc_latex})' = {y_prime_latex}$\n"
+                        f"Computing second derivative: $y'' = ({y_prime_latex})' = {y_second_latex}$"
+                    ),
+                    expression=f"y' = {y_prime_latex}, \\quad y'' = {y_second_latex}",
+                )
             )
-        )
+            sub_dict = {d2y: y_second_val, dy: y_prime_val, y_fn: vfunc}
+            step2_title_km = "ជំនួស y, y' និង y'' ចូលក្នុងអង្គខាងឆ្វេងនៃសមីការ"
+            step2_title_en = "Substitute y, y', and y'' into LHS of Differential Equation"
+            step2_desc_km = (
+                f"ជំនួស $y = {vfunc_latex}$, $y' = {y_prime_latex}$ និង $y'' = {y_second_latex}$ ទៅក្នុងអង្គខាងឆ្វេង (LHS)៖\n"
+            )
+            step2_desc_en = (
+                f"Substituting $y = {vfunc_latex}$, $y' = {y_prime_latex}$, and $y'' = {y_second_latex}$ into the left-hand side (LHS):\n"
+            )
+        else:
+            steps.append(
+                SolutionStep(
+                    order=1,
+                    title_km="គណនាដេរីវេនៃអនុគមន៍ដែលឲ្យ",
+                    title_en="Compute Derivative of Given Function",
+                    description_km=(
+                        f"គេមានអនុគមន៍ $y = {vfunc_latex}$\n"
+                        f"គណនាដេរីវេទី១ គេបាន៖\n"
+                        f"$y' = ({vfunc_latex})' = {y_prime_latex}$"
+                    ),
+                    description_en=(
+                        f"Given function $y = {vfunc_latex}$\n"
+                        f"Computing first derivative:\n"
+                        f"$y' = ({vfunc_latex})' = {y_prime_latex}$"
+                    ),
+                    expression=f"y' = {y_prime_latex}",
+                )
+            )
+            sub_dict = {dy: y_prime_val, y_fn: vfunc}
+            step2_title_km = "ជំនួស y និង y' ចូលក្នុងអង្គខាងឆ្វេងនៃសមីការ"
+            step2_title_en = "Substitute y and y' into LHS of Differential Equation"
+            step2_desc_km = (
+                f"ជំនួស $y = {vfunc_latex}$ និង $y' = {y_prime_latex}$ ទៅក្នុងអង្គខាងឆ្វេង (LHS)៖\n"
+            )
+            step2_desc_en = (
+                f"Substituting $y = {vfunc_latex}$ and $y' = {y_prime_latex}$ into the left-hand side (LHS):\n"
+            )
 
         # Step 2: Substitute into LHS of ODE
-        sub_dict = {dy: y_prime_val, y_fn: vfunc}
         lhs_val = simplify(equation.lhs.subs(sub_dict))
         rhs_val = simplify(equation.rhs.subs(sub_dict))
         is_valid = simplify(lhs_val - rhs_val) == 0
 
-        lhs_expr_latex = _to_latex(equation.lhs).replace(r"\frac{d}{d x} y{\left(x \right)}", "y'").replace(r"y{\left(x \right)}", "y")
+        lhs_expr_latex = _clean_ode_latex(equation.lhs)
         lhs_val_latex = _to_latex(lhs_val)
         rhs_val_latex = _to_latex(rhs_val)
 
         steps.append(
             SolutionStep(
                 order=2,
-                title_km="ជំនួស y និង y' ចូលក្នុងអង្គខាងឆ្វេងនៃសមីការ",
-                title_en="Substitute y and y' into LHS of Differential Equation",
-                description_km=(
-                    f"ជំនួស $y = {vfunc_latex}$ និង $y' = {y_prime_latex}$ ទៅក្នុងអង្គខាងឆ្វេង (LHS)៖\n"
-                    f"${lhs_expr_latex} = {lhs_val_latex}$"
-                ),
-                description_en=(
-                    f"Substituting $y = {vfunc_latex}$ and $y' = {y_prime_latex}$ into the left-hand side (LHS):\n"
-                    f"${lhs_expr_latex} = {lhs_val_latex}$"
-                ),
+                title_km=step2_title_km,
+                title_en=step2_title_en,
+                description_km=f"{step2_desc_km}${lhs_expr_latex} = {lhs_val_latex}$",
+                description_en=f"{step2_desc_en}${lhs_expr_latex} = {lhs_val_latex}$",
                 expression=f"{lhs_expr_latex} = {lhs_val_latex}",
             )
         )
@@ -615,5 +693,269 @@ class DifferentialStepGenerator(StepGenerator):
                 expression=verif_expr,
             )
         )
+
+        return steps
+
+    def _generate_form_ode_steps(
+        self,
+        equation: Eq,
+        symbol: Symbol,
+        solution: Any = None,
+        parsed: Any | None = None,
+    ) -> list[SolutionStep]:
+        """Generate pedagogical steps for forming 2nd-order ODE from solution f(x)."""
+        metadata = getattr(parsed, "metadata", {}) or {}
+        f_expr = metadata.get("function_rhs")
+        if f_expr is None:
+            if hasattr(equation, "rhs"):
+                f_expr = equation.rhs
+            elif hasattr(equation, "lhs"):
+                f_expr = equation.lhs
+            else:
+                f_expr = equation
+
+        a_val = metadata.get("a")
+        b_val = metadata.get("b")
+        if a_val is None or b_val is None:
+            from app.solvers.calculus.differential_solver import _solve_form_ode
+            a_val, b_val, _ = _solve_form_ode(f_expr, symbol)
+
+        f_prime = simplify(sympy.diff(f_expr, symbol))
+        f_second = simplify(sympy.diff(f_expr, symbol, 2))
+
+        steps: list[SolutionStep] = []
+
+        # Step 1: Compute first and second derivatives
+        step1_expr = (
+            f"f'({symbol}) = {_to_latex(f_prime)}, \\quad "
+            f"f''({symbol}) = {_to_latex(f_second)}"
+        )
+        steps.append(
+            SolutionStep(
+                order=1,
+                title_km="គណនាដេរីវេទីមួយ និងទីពីរ",
+                title_en="Compute First and Second Derivatives",
+                expression=step1_expr,
+                description_km=f"គណនាដេរីវេទីមួយ f'({symbol}) និងដេរីវេទីពីរ f''({symbol}) នៃអនុគមន៍ f({symbol}) = {_to_latex(f_expr)}។",
+                description_en=f"Compute the first derivative f'({symbol}) and second derivative f''({symbol}) of f({symbol}) = {_to_latex(f_expr)}.",
+            )
+        )
+
+        # Step 2: Substitute into general ODE form y'' + ay' + by = 0
+        step2_expr = f"y'' + ay' + by = 0 \\implies f''({symbol}) + a f'({symbol}) + b f({symbol}) = 0"
+        steps.append(
+            SolutionStep(
+                order=2,
+                title_km="ជំនួសក្នុងទម្រង់សមីការឌីផេរ៉ង់ស្យែល",
+                title_en="Substitute into General ODE Form",
+                expression=step2_expr,
+                description_km=f"ដោយ f({symbol}) ជាចម្លើយនៃសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរអូម៉ូសែន y'' + ay' + by = 0 នោះគេបាន f''({symbol}) + af'({symbol}) + bf({symbol}) = 0 ចំពោះគ្រប់ {symbol} \\in \\mathbb{{R}}។",
+                description_en=f"Since f({symbol}) is a solution to y'' + ay' + by = 0, we have f''({symbol}) + a*f'({symbol}) + b*f({symbol}) = 0 for all {symbol} in R.",
+            )
+        )
+
+        # Step 3: Solve for coefficients a and b
+        step3_expr = f"a = {_to_latex(a_val)}, \\quad b = {_to_latex(b_val)}"
+        steps.append(
+            SolutionStep(
+                order=3,
+                title_km="កំណត់តម្លៃមេគុណ a និង b",
+                title_en="Solve for Coefficients a and b",
+                expression=step3_expr,
+                description_km=f"ដោះស្រាយប្រព័ន្ធសមីការ ឬស្មើគ្នានៃមេគុណដើម្បីទាញរកតម្លៃ a = {_to_latex(a_val)} និង b = {_to_latex(b_val)}។",
+                description_en=f"Equate coefficients or solve system of equations to find a = {_to_latex(a_val)} and b = {_to_latex(b_val)}.",
+            )
+        )
+
+        # Step 4: Conclude differential equation
+        ans_str = str(solution) if solution else f"y'' + {_to_latex(a_val)}y' + {_to_latex(b_val)}y = 0"
+        steps.append(
+            SolutionStep(
+                order=4,
+                title_km="សន្និដ្ឋានសមីការឌីផេរ៉ង់ស្យែល",
+                title_en="Conclude Differential Equation",
+                expression=ans_str,
+                description_km=f"ដូចនេះ សមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរអូម៉ូសែនដែលត្រូវរកគឺ {ans_str}។",
+                description_en=f"Therefore, the required second-order linear homogeneous differential equation is {ans_str}.",
+            )
+        )
+
+        return steps
+
+    def _generate_second_order_steps(
+        self,
+        equation: Eq,
+        symbol: Symbol,
+        solution: Any = None,
+        parsed: Any | None = None,
+    ) -> list[SolutionStep]:
+        """Generate pedagogical steps for second-order linear homogeneous ODE ay'' + by' + cy = 0."""
+        metadata = getattr(parsed, "metadata", {}) or {}
+        ics = metadata.get("cauchy") or metadata.get("initial_condition")
+        diff = simplify(equation.lhs - equation.rhs) if hasattr(equation, "lhs") else equation
+
+        y_fn = Function("y")(symbol)
+        dy = Derivative(y_fn, symbol)
+        d2y = Derivative(y_fn, (symbol, 2))
+
+        c2 = diff.coeff(d2y)
+        c1 = diff.coeff(dy)
+        c0 = diff.coeff(y_fn)
+
+        A = simplify(c1 / c2) if c2 != 0 else sympy.Integer(0)
+        B = simplify(c0 / c2) if c2 != 0 else sympy.Integer(0)
+        delta = simplify(A**2 - 4 * B)
+
+        # Characteristic polynomial formatting: r^2 + Ar + B = 0
+        char_eq_str = "r^2"
+        if A != 0:
+            if A == 1:
+                char_eq_str += " + r"
+            elif A == -1:
+                char_eq_str += " - r"
+            elif A > 0:
+                char_eq_str += f" + {_to_latex(A)}r"
+            else:
+                char_eq_str += f" - {_to_latex(abs(A))}r"
+        if B != 0:
+            if B > 0:
+                char_eq_str += f" + {_to_latex(B)}"
+            else:
+                char_eq_str += f" - {_to_latex(abs(B))}"
+        char_eq_str += " = 0"
+
+        steps: list[SolutionStep] = []
+
+        # Step 1: Characteristic Equation
+        steps.append(
+            SolutionStep(
+                order=1,
+                title_km="សរសេរសមីការសម្គាល់",
+                title_en="Write Characteristic Equation",
+                expression=char_eq_str,
+                description_km=f"សរសេរសមីការសម្គាល់នៃសមីការឌីផេរ៉ង់ស្យែល៖ {char_eq_str}។",
+                description_en=f"Form the characteristic equation: {char_eq_str}.",
+            )
+        )
+
+        # Step 2: Compute Discriminant and Roots
+        C1, C2 = sympy.symbols("C_1 C_2")
+        if delta > 0:
+            r1 = simplify((-A + sqrt(delta)) / 2)
+            r2 = simplify((-A - sqrt(delta)) / 2)
+            y_gen_sym = C1 * exp(r1 * symbol) + C2 * exp(r2 * symbol)
+            step2_expr = f"\\Delta = {_to_latex(delta)} > 0 \\implies r_1 = {_to_latex(r1)}, \\quad r_2 = {_to_latex(r2)}"
+            step2_desc_km = f"ដោយ \\Delta = {_to_latex(delta)} > 0 នោះសមីការសម្គាល់មានឫសពីរផ្សេងគ្នាជាចំនួនពិត r_1 = {_to_latex(r1)} និង r_2 = {_to_latex(r2)}។"
+            step2_desc_en = f"Since \\Delta = {_to_latex(delta)} > 0, the characteristic equation has two distinct real roots r_1 = {_to_latex(r1)} and r_2 = {_to_latex(r2)}."
+            gen_sol_expr = f"y = C_1 e^{{{_to_latex(r1 * symbol)}}} + C_2 e^{{{_to_latex(r2 * symbol)}}} \\quad (C_1, C_2 \\in \\mathbb{{R}})"
+            gen_sol_desc_km = f"ចម្លើយទូទៅនៃសមីការគឺ y = C_1 e^{{{_to_latex(r1 * symbol)}}} + C_2 e^{{{_to_latex(r2 * symbol)}}} ដែល C_1, C_2 ជាចំនួនថេរ។"
+            gen_sol_desc_en = f"The general solution is y = C_1 e^{{{_to_latex(r1 * symbol)}}} + C_2 e^{{{_to_latex(r2 * symbol)}}} where C_1, C_2 are real constants."
+        elif delta == 0:
+            r0 = simplify(-A / 2)
+            y_gen_sym = (C1 * symbol + C2) * exp(r0 * symbol)
+            step2_expr = f"\\Delta = 0 \\implies r_0 = {_to_latex(r0)}"
+            step2_desc_km = f"ដោយ \\Delta = 0 នោះសមីការសម្គាល់មានឫសឌុប r_0 = {_to_latex(r0)}។"
+            step2_desc_en = f"Since \\Delta = 0, the characteristic equation has a repeated real root r_0 = {_to_latex(r0)}."
+            gen_sol_expr = f"y = (C_1 {symbol} + C_2) e^{{{_to_latex(r0 * symbol)}}} \\quad (C_1, C_2 \\in \\mathbb{{R}})"
+            gen_sol_desc_km = f"ចម្លើយទូទៅនៃសមីការគឺ y = (C_1 {symbol} + C_2) e^{{{_to_latex(r0 * symbol)}}} ដែល C_1, C_2 ជាចំនួនថេរ។"
+            gen_sol_desc_en = f"The general solution is y = (C_1 {symbol} + C_2) e^{{{_to_latex(r0 * symbol)}}} where C_1, C_2 are real constants."
+        else:
+            alpha = simplify(-A / 2)
+            beta = simplify(sqrt(-delta) / 2)
+            step2_expr = f"\\Delta = {_to_latex(delta)} < 0 \\implies r = {_to_latex(alpha)} \\pm {_to_latex(beta)}i"
+            step2_desc_km = f"ដោយ \\Delta = {_to_latex(delta)} < 0 នោះសមីការសម្គាល់មានឫសកុំផ្លិចឆ្លាស់ r = \\alpha \\pm i\\beta ដែល \\alpha = {_to_latex(alpha)}, \\beta = {_to_latex(beta)}។"
+            step2_desc_en = f"Since \\Delta = {_to_latex(delta)} < 0, the characteristic equation has complex conjugate roots r = \\alpha \\pm i\\beta with \\alpha = {_to_latex(alpha)}, \\beta = {_to_latex(beta)}."
+            if alpha == 0:
+                y_gen_sym = C1 * cos(beta * symbol) + C2 * sin(beta * symbol)
+                gen_sol_expr = f"y = C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)}) \\quad (C_1, C_2 \\in \\mathbb{{R}})"
+                gen_sol_desc_km = f"ចម្លើយទូទៅនៃសមីការគឺ y = C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)}) ដែល C_1, C_2 ជាចំនួនថេរ។"
+                gen_sol_desc_en = f"The general solution is y = C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)}) where C_1, C_2 are real constants."
+            else:
+                y_gen_sym = exp(alpha * symbol) * (C1 * cos(beta * symbol) + C2 * sin(beta * symbol))
+                exp_latex = f"e^{{{_to_latex(alpha * symbol)}}}"
+                gen_sol_expr = f"y = {exp_latex} (C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)})) \\quad (C_1, C_2 \\in \\mathbb{{R}})"
+                gen_sol_desc_km = f"ចម្លើយទូទៅនៃសមីការគឺ y = {exp_latex}(C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)})) ដែល C_1, C_2 ជាចំនួនថេរ។"
+                gen_sol_desc_en = f"The general solution is y = {exp_latex}(C_1 \\cos({_to_latex(beta * symbol)}) + C_2 \\sin({_to_latex(beta * symbol)})) where C_1, C_2 are real constants."
+
+        steps.append(
+            SolutionStep(
+                order=2,
+                title_km="គណនាឌីស្គ្រីមីណង់ និងរកឫស",
+                title_en="Compute Discriminant and Solve for Roots",
+                expression=step2_expr,
+                description_km=step2_desc_km,
+                description_en=step2_desc_en,
+            )
+        )
+
+        # Step 3: State General Solution
+        steps.append(
+            SolutionStep(
+                order=3,
+                title_km="សរសេរចម្លើយទូទៅ",
+                title_en="State General Solution",
+                expression=gen_sol_expr,
+                description_km=gen_sol_desc_km,
+                description_en=gen_sol_desc_en,
+            )
+        )
+
+        # If initial conditions, add Step 4 and Step 5
+        if ics and solution and "C_1" not in str(solution) and "C_2" not in str(solution):
+            dy_gen_sym = sympy.diff(y_gen_sym, symbol)
+            step4_expr = r"\text{Substituting initial conditions}"
+            step4_desc_km = "ជំនួសលក្ខខណ្ឌដើមដែលបានកំណត់ចូលក្នុងចម្លើយទូទៅ និងដេរីវេទីមួយដើម្បីទាញរកប្រព័ន្ធសមីការកំណត់តម្លៃថេរ C_1 និង C_2។"
+            step4_desc_en = "Substitute initial conditions into the general solution and its first derivative to determine constants C_1 and C_2."
+
+            if isinstance(ics, (tuple, list)) and len(ics) == 2 and isinstance(ics[0], (tuple, list)):
+                (x0, y0), (x1, y1_prime) = ics
+                eq1_lhs = simplify(y_gen_sym.subs(symbol, x0))
+                eq2_lhs = simplify(dy_gen_sym.subs(symbol, x1))
+                c_sol = sympy.solve([Eq(eq1_lhs, y0), Eq(eq2_lhs, y1_prime)], (C1, C2))
+                c1_val = c_sol.get(C1)
+                c2_val = c_sol.get(C2)
+                if c1_val is not None and c2_val is not None:
+                    eq1_str = f"{_to_latex(eq1_lhs)} = {_to_latex(y0)}"
+                    eq2_str = f"{_to_latex(eq2_lhs)} = {_to_latex(y1_prime)}"
+                    c1_str = _to_latex(c1_val)
+                    c2_str = _to_latex(c2_val)
+                    step4_expr = (
+                        f"y' = {_to_latex(dy_gen_sym)} \\implies "
+                        f"\\begin{{cases}} {eq1_str} \\\\ {eq2_str} \\end{{cases}} "
+                        f"\\implies C_1 = {c1_str}, \\quad C_2 = {c2_str}"
+                    )
+                    step4_desc_km = (
+                        f"គណនាដេរីវេទីមួយនៃចម្លើយទូទៅ៖ $y' = {_to_latex(dy_gen_sym)}$ ។\n"
+                        f"ដោយ $y({_to_latex(x0)}) = {_to_latex(y0)}$ និង $y'({_to_latex(x1)}) = {_to_latex(y1_prime)}$ គេបានប្រព័ន្ធសមីការ៖\n"
+                        f"$\\begin{{cases}} {eq1_str} \\\\ {eq2_str} \\end{{cases}} "
+                        f"\\implies C_1 = {c1_str}, \\quad C_2 = {c2_str} ។"
+                    )
+                    step4_desc_en = (
+                        f"Compute first derivative: $y' = {_to_latex(dy_gen_sym)}$.\n"
+                        f"From $y({_to_latex(x0)}) = {_to_latex(y0)}$ and $y'({_to_latex(x1)}) = {_to_latex(y1_prime)}$ we obtain:\n"
+                        f"$\\begin{{cases}} {eq1_str} \\\\ {eq2_str} \\end{{cases}} "
+                        f"\\implies C_1 = {c1_str}, \\quad C_2 = {c2_str}."
+                    )
+
+            steps.append(
+                SolutionStep(
+                    order=4,
+                    title_km="ជំនួសលក្ខខណ្ឌដើមដើម្បីកំណត់តម្លៃថេរ",
+                    title_en="Apply Initial Conditions to Determine Constants",
+                    expression=step4_expr,
+                    description_km=step4_desc_km,
+                    description_en=step4_desc_en,
+                )
+            )
+            steps.append(
+                SolutionStep(
+                    order=5,
+                    title_km="សន្និដ្ឋានចម្លើយពិសេស",
+                    title_en="State Final Particular Solution",
+                    expression=str(solution),
+                    description_km=f"ដូចនេះ ចម្លើយពិសេសនៃសមីការឌីផេរ៉ង់ស្យែលគឺ {solution}។",
+                    description_en=f"Therefore, the particular solution to the differential equation is {solution}.",
+                )
+            )
 
         return steps

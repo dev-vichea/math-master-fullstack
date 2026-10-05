@@ -51,7 +51,10 @@ def test_parse_math_text_integral_variants():
 
 
 def test_worksheet_processor_image4():
-    image_path = "backend/training/test_exercises/integrals/image4.png"
+    from pathlib import Path
+    image_path = Path("training/test_exercises/integrals/image4.png")
+    if not image_path.exists():
+        image_path = Path("backend/training/test_exercises/integrals/image4.png")
     with open(image_path, "rb") as f:
         img_bytes = f.read()
 

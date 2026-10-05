@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sympy import Derivative, Function, Symbol
+
 from app.knowledge.models import (
     Chapter,
     Concept,
@@ -263,6 +265,166 @@ rule_verification = RuleFormula(
     methods=[method_verification],
 )
 
+# 4. Second-Order Linear Homogeneous Method (ay'' + by' + cy = 0)
+template_ode_second_order_homogeneous = ExplanationTemplate(
+    id="tmpl_ode_second_order_homogeneous",
+    method_id="method_ode_second_order_homogeneous",
+    name_km="ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែន ay'' + by' + cy = 0",
+    name_en="Solve Second-Order Linear Homogeneous ODE ay'' + by' + cy = 0",
+    verification_strategy="characteristic_equation",
+    pedagogical_notes_km="សមីការមានទម្រង់ ay'' + by' + cy = 0។ សរសេរសមីការសម្គាល់ ar^2 + br + c = 0 រួចគណនាឌីស្គ្រីមីណង់ Delta = b^2 - 4ac។ បើ Delta > 0 សមីការសម្គាល់មានឫសពីរផ្សេងគ្នា r1, r2 នាំឲ្យ y = C1 e^{r1 x} + C2 e^{r2 x}។ បើ Delta = 0 សមីការសម្គាល់មានឫសឌុប r0 = -b/(2a) នាំឲ្យ y = (C1 x + C2) e^{r0 x}។ បើ Delta < 0 សមីការសម្គាល់មានឫសកុំផ្លិចឆ្លាស់ r = alpha +/- i*beta នាំឲ្យ y = e^{alpha x}(C1 cos(beta x) + C2 sin(beta x))។",
+    pedagogical_notes_en="Solve the characteristic equation ar^2 + br + c = 0 via discriminant Delta = b^2 - 4ac. Distinct real roots give y = C1 e^{r1 x} + C2 e^{r2 x}; repeated root gives y = (C1 x + C2) e^{r0 x}; complex roots give y = e^{alpha x}(C1 cos(beta x) + C2 sin(beta x)).",
+    steps=[
+        ExplanationStepTemplate(
+            order=1,
+            action_type="characteristic_equation",
+            title_km="សរសេរសមីការសម្គាល់",
+            title_en="Write Characteristic Equation",
+            rationale_template_km="សរសេរសមីការសម្គាល់ ar^2 + br + c = 0 នៃសមីការឌីផេរ៉ង់ស្យែល។",
+            rationale_template_en="Form the characteristic equation ar^2 + br + c = 0 from the ODE coefficients.",
+            rule_reference="ay'' + by' + cy = 0 \\iff ar^2 + br + c = 0",
+        ),
+        ExplanationStepTemplate(
+            order=2,
+            action_type="solve_roots",
+            title_km="គណនាឌីស្គ្រីមីណង់ និងរកឫសនៃសមីការសម្គាល់",
+            title_en="Compute Discriminant and Solve for Roots",
+            rationale_template_km="គណនា Delta = b^2 - 4ac និងទាញរកឫស r នៃសមីការសម្គាល់។",
+            rationale_template_en="Calculate Delta = b^2 - 4ac and determine the roots r of the characteristic equation.",
+        ),
+        ExplanationStepTemplate(
+            order=3,
+            action_type="state_general_solution",
+            title_km="សរសេរចម្លើយទូទៅ",
+            title_en="State General Solution",
+            rationale_template_km="សរសេររូបមន្តចម្លើយទូទៅស្របតាមសញ្ញានៃ Delta។",
+            rationale_template_en="State the general solution formula corresponding to the sign of Delta.",
+        ),
+        ExplanationStepTemplate(
+            order=4,
+            action_type="apply_initial_conditions",
+            title_km="ជំនួសលក្ខខណ្ឌដើម (បើមាន)",
+            title_en="Apply Initial Conditions (if given)",
+            rationale_template_km="ជំនួស y(x0) = y0 និង y'(x0) = y'0 ដើម្បីទាញរកតម្លៃថេរ C1 និង C2។",
+            rationale_template_en="Substitute initial conditions to determine arbitrary constants.",
+        ),
+        ExplanationStepTemplate(
+            order=5,
+            action_type="conclude_solution",
+            title_km="សន្និដ្ឋានចម្លើយចុងក្រោយ",
+            title_en="State Final Solution",
+            rationale_template_km="សរសេរចម្លើយសម្រួលចុងក្រោយនៃសមីការឌីផេរ៉ង់ស្យែល។",
+            rationale_template_en="State the final simplified solution.",
+        ),
+    ],
+)
+
+method_second_order_homogeneous = Method(
+    id="method_ode_second_order_homogeneous",
+    rule_id="rule_ode_second_order_homogeneous",
+    name_km="វិធីដោះស្រាយសមីការលីនេអ៊ែរលំដាប់ទីពីរ ay'' + by' + cy = 0",
+    name_en="Second-Order Linear Homogeneous ODE Method",
+    description_km="ដោះស្រាយតាមសមីការសម្គាល់ ar^2 + br + c = 0 និងឌីស្គ្រីមីណង់ Delta។",
+    description_en="Solve via characteristic equation ar^2 + br + c = 0 and discriminant Delta.",
+    applicability="Second-order linear homogeneous equations ay'' + by' + cy = 0 with constant coefficients.",
+    template=template_ode_second_order_homogeneous,
+    examples=[
+        CurriculumExample(
+            id="ex_ode_sec_1",
+            method_id="method_ode_second_order_homogeneous",
+            problem_raw="y'' + 4y' + 4y = 0",
+            problem_latex="y'' + 4y' + 4y = 0",
+            solution_latex=r"y = (C_1 x + C_2) e^{-2x} \quad (C_1, C_2 \in \mathbb{R})",
+            explanation_summary_km="សមីការសម្គាល់ r^2 + 4r + 4 = 0 មានឫសឌុប r0 = -2 នាំឲ្យ y = (C1 x + C2) e^{-2x}។",
+        ),
+    ],
+)
+
+rule_second_order_homogeneous = RuleFormula(
+    id="rule_ode_second_order_homogeneous",
+    concept_id="concept_second_order_ode",
+    name_km="រូបមន្តសមីការឌីផេរ៉ង់ស្យែលលំដាប់ទីពីរ ay'' + by' + cy = 0",
+    name_en="Second-Order Linear Homogeneous Formula",
+    formula_latex=r"ay'' + by' + cy = 0 \iff ar^2 + br + c = 0",
+    methods=[method_second_order_homogeneous],
+)
+
+# 5. Form Differential Equation from Solution Method
+template_ode_form_from_solution = ExplanationTemplate(
+    id="tmpl_ode_form_from_solution",
+    method_id="method_ode_form_from_solution",
+    name_km="រកសមីការឌីផេរ៉ង់ស្យែលលំដាប់ទីពីរដែលមានអនុគមន៍ f ជាចម្លើយ",
+    name_en="Find Second-Order ODE Having Function f as Solution",
+    verification_strategy="substitution",
+    pedagogical_notes_km="គណនាដេរីវេទីមួយ f'(x) និងដេរីវេទីពីរ f''(x)។ ដោយ f ជាចម្លើយនៃសមីការ y'' + ay' + by = 0 នោះ f''(x) + af'(x) + bf(x) = 0។ ទាញរកតម្លៃមេគុណ a និង b រួចសរសេរសមីការឌីផេរ៉ង់ស្យែល។",
+    pedagogical_notes_en="Compute f'(x) and f''(x). Since f satisfies y'' + ay' + by = 0, equate f''(x) + a*f'(x) + b*f(x) = 0 to solve for coefficients a and b, then state the differential equation.",
+    steps=[
+        ExplanationStepTemplate(
+            order=1,
+            action_type="compute_derivatives",
+            title_km="គណនាដេរីវេទីមួយ និងទីពីរ",
+            title_en="Compute First and Second Derivatives",
+            rationale_template_km="គណនា f'(x) និង f''(x) តាមវិធានដេរីវេ។",
+            rationale_template_en="Differentiate f(x) twice to find f'(x) and f''(x).",
+        ),
+        ExplanationStepTemplate(
+            order=2,
+            action_type="substitute_into_general_form",
+            title_km="ជំនួសក្នុងទម្រង់សមីការឌីផេរ៉ង់ស្យែល",
+            title_en="Substitute into General ODE Form",
+            rationale_template_km="សមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរអូម៉ូសែនមានទម្រង់ y'' + ay' + by = 0 នាំឲ្យ f''(x) + af'(x) + bf(x) = 0។",
+            rationale_template_en="Substitute f(x), f'(x), and f''(x) into y'' + ay' + by = 0.",
+            rule_reference="y'' + ay' + by = 0 \\implies f''(x) + af'(x) + bf(x) = 0",
+        ),
+        ExplanationStepTemplate(
+            order=3,
+            action_type="solve_coefficients",
+            title_km="កំណត់តម្លៃមេគុណ a និង b",
+            title_en="Solve for Coefficients a and b",
+            rationale_template_km="ដោះស្រាយសមីការ ឬប្រព័ន្ធសមីការដើម្បីទាញរកតម្លៃ a និង b។",
+            rationale_template_en="Equate coefficients or solve system of equations to determine a and b.",
+        ),
+        ExplanationStepTemplate(
+            order=4,
+            action_type="conclude_equation",
+            title_km="សន្និដ្ឋានសមីការឌីផេរ៉ង់ស្យែល",
+            title_en="Conclude Differential Equation",
+            rationale_template_km="ជំនួសតម្លៃ a និង b ចូលក្នុងទម្រង់ y'' + ay' + by = 0 ដើម្បីទទួលបានសមីការចុងក្រោយ។",
+            rationale_template_en="State the resulting second-order differential equation.",
+        ),
+    ],
+)
+
+method_form_from_solution = Method(
+    id="method_ode_form_from_solution",
+    rule_id="rule_ode_form_from_solution",
+    name_km="វិធីរកសមីការឌីផេរ៉ង់ស្យែលពីអនុគមន៍ចម្លើយ",
+    name_en="Form ODE from Given Solution Method",
+    description_km="គណនា f', f'' រួចកំណត់មេគុណ a, b នៃ y'' + ay' + by = 0។",
+    description_en="Compute f', f'' and solve for coefficients a, b in y'' + ay' + by = 0.",
+    applicability="Problems asking to find the differential equation that has a given function f as a solution.",
+    template=template_ode_form_from_solution,
+    examples=[
+        CurriculumExample(
+            id="ex_ode_form_1",
+            method_id="method_ode_form_from_solution",
+            problem_raw=r"f(x) = (x + 1)e^{-2x}",
+            problem_latex=r"f(x) = (x + 1)e^{-2x}",
+            solution_latex=r"y'' + 4y' + 4y = 0",
+            explanation_summary_km=r"f'(x) = (-2x - 1)e^{-2x}, f''(x) = 4x e^{-2x} នាំឲ្យ a = 4, b = 4 ដូចនេះ y'' + 4y' + 4y = 0។",
+        ),
+    ],
+)
+
+rule_form_from_solution = RuleFormula(
+    id="rule_ode_form_from_solution",
+    concept_id="concept_second_order_ode",
+    name_km="វិធានរកសមីការឌីផេរ៉ង់ស្យែលពីចម្លើយ",
+    name_en="Form ODE from Solution Rule",
+    formula_latex=r"y'' + ay' + by = 0 \iff f''(x) + af'(x) + bf(x) = 0",
+    methods=[method_form_from_solution],
+)
+
 # Concepts
 concept_first_order_ode = Concept(
     id="concept_first_order_ode",
@@ -286,7 +448,18 @@ concept_ode_verification = Concept(
     rules=[rule_verification],
 )
 
-# Lesson
+concept_second_order_ode = Concept(
+    id="concept_second_order_ode",
+    lesson_id="lesson_differentials_second_form",
+    order=1,
+    title_km="សមីការឌីផេរ៉ង់ស្យែលលំដាប់ទី២",
+    title_en="Second-Order Differential Equations",
+    definition_km="សមីការដែលមានទំនាក់ទំនងរវាងអថេរឯករាជ្យ x អនុគមន៍ y ដេរីវេទី១ y' និងដេរីវេទី២ y''។",
+    definition_en="Equations relating independent variable x, function y, first derivative y', and second derivative y''.",
+    rules=[rule_second_order_homogeneous, rule_form_from_solution],
+)
+
+# Lessons
 lesson_first_order_ode = Lesson(
     id="lesson_differentials_first_form",
     chapter_id="chapter_differential_equations",
@@ -296,6 +469,17 @@ lesson_first_order_ode = Lesson(
     description_km="មេរៀនសមីការឌីផេរ៉ង់ស្យែលលំដាប់ទី១ សម្រាប់ថ្នាក់ទី១២ បាក់ឌុប រួមមានសមីការ y' + ay = 0 សមីការ y' = f(x) ចំណោទកូស៊ី និងការផ្ទៀងផ្ទាត់ចម្លើយ។",
     description_en="Grade 12 BacII lesson on first-order differential equations: linear homogeneous y' + ay = 0, direct integration y' = f(x), Cauchy initial value problems, and solution verification.",
     concepts=[concept_first_order_ode, concept_ode_verification],
+)
+
+lesson_second_order_ode = Lesson(
+    id="lesson_differentials_second_form",
+    chapter_id="chapter_differential_equations",
+    order=2,
+    title_km="សមីការឌីផេរ៉ង់ស្យែលលំដាប់ទី២ (ទម្រង់ទី២)",
+    title_en="Second-Order Differential Equations (Second Form)",
+    description_km="មេរៀនសមីការឌីផេរ៉ង់ស្យែលលំដាប់ទី២ សម្រាប់ថ្នាក់ទី១២ បាក់ឌុប រួមមានសមីការ ay'' + by' + cy = 0 សមីការសម្គាល់ ចំណោទកូស៊ី និងការបង្កើតសមីការពីអនុគមន៍ចម្លើយ។",
+    description_en="Grade 12 BacII lesson on second-order differential equations: linear homogeneous ay'' + by' + cy = 0, characteristic equations, Cauchy problems, and forming ODEs from given solutions.",
+    concepts=[concept_second_order_ode],
 )
 
 # Chapter
@@ -308,27 +492,36 @@ chapter_differential_equations = Chapter(
     description_km="ជំពូកសមីការឌីផេរ៉ង់ស្យែល កម្មវិធីសិក្សាគណិតវិទ្យាថ្នាក់ទី១២ នៃក្រសួងអប់រំ យុវជន និងកីឡា (BacII)។",
     description_en="Chapter on Differential Equations for Grade 12 National Curriculum (MoEYS BacII).",
     grade_level=12,
-    lessons=[lesson_first_order_ode],
+    lessons=[lesson_first_order_ode, lesson_second_order_ode],
 )
 
 
 def detect_differential_method(parsed: Any) -> Method:
     """Detect which differential equation method applies based on parsed expression and metadata."""
     meta = getattr(parsed, "metadata", {}) or {}
+    if meta.get("is_form_ode"):
+        return method_form_from_solution
     if meta.get("is_verification"):
         return method_verification
 
     expr = getattr(parsed, "sympy_expr", None)
-    # Check if linear homogeneous (y' + ay = 0)
     if expr is not None and hasattr(expr, "lhs") and hasattr(expr, "rhs"):
         lhs = expr.lhs
         rhs = expr.rhs
         diff = lhs - rhs
-        # If diff contains y(var) and Derivative(y(var), var) linearly
-        var = meta.get("independent_var")
-        y_fn = getattr(parsed, "symbols", [None, None])
-        # Simple heuristic: if diff free of other functions and only contains y and y'
-        if not any(sym.name not in ("x", "y", "u") for sym in getattr(diff, "free_symbols", [])):
+        # Check if second order (contains Derivative of order 2)
+        var = meta.get("independent_var") or Symbol("x")
+        y_fn = Function("y")(var)
+        d2y = Derivative(y_fn, (var, 2))
+        if diff.has(d2y) or "Derivative(y" in str(diff) and ", 2)" in str(diff):
+            return method_second_order_homogeneous
+
+        # Check if linear homogeneous (y' + ay = 0)
+        dy = Derivative(y_fn, var)
+        if diff.has(dy) and diff.has(y_fn):
             return method_linear_homogeneous
+
+    if meta.get("order") == 2:
+        return method_second_order_homogeneous
 
     return method_direct_integration

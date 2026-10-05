@@ -336,3 +336,119 @@ def test_process_question_differential_cauchy():
     assert res.answer is not None
     assert "3" in res.answer
     assert "e" in res.answer
+
+
+def test_differential_verification_second_order():
+    """Verify f(x) = (2x+1)e^{-x} satisfies y'' + 2y' + y = 0."""
+    solver = get_solver("calculus_differential_equation")
+    assert solver is not None
+
+    parsed = parse_math_text(r"f(x) = (2x+1)e^{-x} , y'' + 2y' + y = 0")
+    assert parsed.metadata.get("is_verification") is True
+
+    result = solver.solve_verification(
+        parsed.metadata["function_rhs"],
+        parsed.metadata["differential_eq"],
+    )
+    assert result.is_verified is True
+    assert "ពិត" in result.answer
+
+
+def test_process_question_user_ocr_differential_verification():
+    """Test full pipeline on user exact OCR detected string."""
+    q = (
+        r"1. ធ្ទៀងផ្ទាត់ថាអនុគមន៍ / ជាចម្លើយនៃសមីការឌីផេរំង័ពស្បួលដែលគេឱ្យនៅខាងស្ដាំ : "
+        r"ក. f(x) = (2x+1)e^{-x} , y^{\prime\prime}+2y^{\prime}+y = 0"
+    )
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert res.is_verified is True
+    assert "ពិត" in res.answer
+    assert len(res.steps) == 3
+    # Check steps have Khmer pedagogical explanations
+    assert any("ដេរីវេទី១" in s.description_km for s in res.steps)
+    assert any("ដេរីវេទី២" in s.description_km for s in res.steps)
+
+
+def test_process_question_user_image_problem_ko():
+    """Test f(x) = Ae^x + Bxe^x , y'' - 2y' + y = 0 with arbitrary constants A and B."""
+    q = "គ. f(x) = Ae^x + Bxe^x , y'' - 2y' + y = 0 ដែល A និង B ជាចំនួនថេរណាមួយក៏បាន ។"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert res.is_verified is True
+    assert "ពិត" in res.answer
+    assert len(res.steps) == 3
+
+
+# ==============================================================================
+# Second Form (ទម្រង់ទី២) Tests: Grade 12 BacII Chapter 6
+# ==============================================================================
+
+def test_form_ode_image6_ka():
+    """Exercise 3.ក from image6.png: f(x) = (x+1)e^{-2x} -> y'' + 4y' + 4y = 0."""
+    q = "រកសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែនដែលមានអនុគមន៍ f ជាចម្លើយ: f(x) = (x + 1)e^{-2x}"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "y'' + 4y' + 4y = 0" in res.answer
+    assert len(res.steps) == 4
+    assert any("ដេរីវេទីមួយ និងទីពីរ" in s.title_km for s in res.steps)
+    assert any("មេគុណ a និង b" in s.title_km for s in res.steps)
+
+
+def test_form_ode_image6_kha():
+    """Exercise 3.ខ from image6.png: f(x) = 2e^{-x} + 3e^{3x} -> y'' - 2y' - 3y = 0."""
+    q = "រកសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែនដែលមានអនុគមន៍ f ជាចម្លើយ: f(x) = 2e^{-x} + 3e^{3x}"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "y'' - 2y' - 3y = 0" in res.answer
+    assert len(res.steps) == 4
+
+
+def test_form_ode_image6_ko():
+    r"""Exercise 3.គ from image6.png: f(x) = (2\cos 3x - 3\sin 3x)e^x -> y'' - 2y' + 10y = 0."""
+    q = r"រកសមីការឌីផេរ៉ង់ស្យែលលីនេអ៊ែរលំដាប់ទីពីរ អូម៉ូសែនដែលមានអនុគមន៍ f ជាចម្លើយ: f(x) = (2\cos 3x - 3\sin 3x)e^x"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "y'' - 2y' + 10y = 0" in res.answer
+    assert len(res.steps) == 4
+
+
+def test_second_order_ode_double_root():
+    """Solve y'' + 4y' + 4y = 0 (Delta = 0)."""
+    q = "y'' + 4y' + 4y = 0"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "(C_1 x + C_2)" in res.answer or "(C_1x + C_2)" in res.answer
+    assert "e^{- 2 x}" in res.answer or "e^{-2x}" in res.answer
+    assert len(res.steps) == 3
+    assert any("សមីការសម្គាល់" in s.title_km for s in res.steps)
+
+
+def test_second_order_ode_distinct_roots():
+    """Solve y'' - 2y' - 3y = 0 (Delta > 0)."""
+    q = "y'' - 2y' - 3y = 0"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "e^{3 x}" in res.answer or "e^{3x}" in res.answer
+    assert "e^{- x}" in res.answer or "e^{-x}" in res.answer
+    assert len(res.steps) == 3
+
+
+def test_second_order_ode_complex_roots():
+    """Solve y'' - 2y' + 10y = 0 (Delta < 0)."""
+    q = "y'' - 2y' + 10y = 0"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "cos" in res.answer and "sin" in res.answer
+    assert "e^{x}" in res.answer or "e^x" in res.answer
+    assert len(res.steps) == 3
+
+
+def test_second_order_ode_cauchy_initial_conditions():
+    """Solve y'' - 2y' - 3y = 0 with y(0) = 5, y'(0) = 7 -> y = 3e^{3x} + 2e^{-x}."""
+    q = "y'' - 2y' - 3y = 0 , y(0) = 5 , y'(0) = 7"
+    res = process_question(q)
+    assert res.problem_type == "calculus_differential_equation"
+    assert "3 e^{3 x} + 2 e^{- x}" in res.answer or "2 e^{- x} + 3 e^{3 x}" in res.answer
+    assert len(res.steps) == 5
+

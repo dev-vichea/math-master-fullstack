@@ -19,8 +19,8 @@ tensorboard>=2.13.0
 
 # Optional: Advanced tools
 # wandb>=0.15.0              # Weights & Biases for experiment tracking
-# jupyterlab>=4.0.0          # For notebooks
-# label-studio>=1.8.0        # Data labeling tool
+jupyterlab>=4.0.0          # For notebooks
+ipykernel>=6.0.0           # For running Jupyter kernels
 
 # Optional: Specific models
 # sentence-transformers>=2.2.0  # For embeddings

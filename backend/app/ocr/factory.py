@@ -158,11 +158,22 @@ def create_vision_engine(provider: str | None = None) -> BaseVisionEngine:
                 "See app/core/vision/pix2tex_engine.py for details."
             ) from e
 
+    elif provider in ("trocr", "khmer_math", "math_trocr"):
+        try:
+            from app.ocr.engines.trocr import TrOCRVisionEngine
+
+            return TrOCRVisionEngine()
+        except ImportError as e:
+            raise ImportError(
+                "TrOCR provider requires: pip install torch transformers sentencepiece\n"
+                "See app/ocr/engines/trocr.py for details."
+            ) from e
+
     else:
         raise ValueError(
             f"Unknown vision provider: {provider}\n"
             f"Available providers: stub, tesseract, kiri (khmer_ocr), pix2tex (latex_ocr), "
-            f"mathpix, google, gemini, smart (intelligent router), or ensemble:strategy:providers"
+            f"trocr (khmer_math), mathpix, google, gemini, smart (intelligent router), or ensemble:strategy:providers"
         )
 
 

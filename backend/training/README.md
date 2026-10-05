@@ -4,9 +4,12 @@ This directory contains everything needed for training and evaluating AI models.
 
 ## Quick Start
 
-### 1. Install Training Dependencies
+### 1. Activate Environment & Dependencies
 
+From the backend root:
 ```bash
+source .venv/bin/activate
+cd training
 pip install -r training_requirements.txt
 ```
 
@@ -24,14 +27,21 @@ Test Khmer OCR on an image and solve it:
 python scripts/run_khmer_ocr.py --image sample_data/images/000001.png --solve
 ```
 
-### 4. Train Your First Model
+### 4. Train Models (CLI or Jupyter Notebook)
 
+**Option A: Using Jupyter Notebooks (Recommended)**
+Open notebooks directly in VS Code / Antigravity IDE (Kernel: `Python (Math Lab .venv)`) or launch Jupyter Lab:
 ```bash
-# Intent classification
-python scripts/train_intent_classifier.py
+jupyter lab
+```
+Available notebooks:
+- [01_trocr_finetuning.ipynb](file:///Users/kiddd/Development/math-lab/backend/training/notebooks/01_trocr_finetuning.ipynb) — Fine-tune TrOCR model on math expression images.
+- [02_intent_classifier_training.ipynb](file:///Users/kiddd/Development/math-lab/backend/training/notebooks/02_intent_classifier_training.ipynb) — Train bilingual Khmer/English math intent classifier.
 
-# Or use notebooks for interactive training
-jupyter notebook notebooks/02_intent_classifier_training.ipynb
+**Option B: Using Python CLI**
+```bash
+# Train intent classifier script
+python scripts/train_intent_classifier.py
 ```
 
 ## Directory Structure

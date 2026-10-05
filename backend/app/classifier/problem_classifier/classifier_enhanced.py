@@ -168,10 +168,26 @@ class ProblemClassifier:
     ) -> str:
         """Classify the main problem type."""
 
-        # Priority 0.5: Sequence recurrence tuple
+        # Priority 0.5: Tuples of equations / expressions
         if isinstance(expr, (Tuple, list, tuple)):
+            # Sequence recurrence tuple (e.g. a_1 = 2, a_{n+1} = a_n/2 + 3)
             if any(self._is_recurrence_equation(e) or str(getattr(e, "lhs", "")).endswith("_1") for e in expr if isinstance(e, Eq)):
                 return "sequence_recurrence"
+
+            # Differential equations (e.g. Cauchy condition or verification pair)
+            if (
+                getattr(parsed, "metadata", {}).get("is_differential_equation")
+                or any(isinstance(e, Eq) and (e.has(Derivative) or "y'" in str(e)) for e in expr)
+                or any("y'" in str(e) for e in expr)
+            ):
+                return "calculus_differential_equation"
+
+            # System of equations
+            if len(expr) == 2 and len(parsed.symbols) == 2:
+                return "system_linear_2x2"
+            elif len(expr) == 3 and len(parsed.symbols) == 3:
+                return "system_linear_3x3"
+            return "system_equations"
 
         # Priority 1: Calculus and Sequence Limits
         if isinstance(expr, Limit) or (
@@ -299,8 +315,26 @@ class ProblemClassifier:
     ) -> str:
         """Classify equation types."""
 
+        # Guard: if expr is a tuple or list of equations
+        if isinstance(expr, (Tuple, list, tuple)):
+            if (
+                getattr(parsed, "metadata", {}).get("is_differential_equation")
+                or any(isinstance(e, Eq) and (e.has(Derivative) or "y'" in str(e)) for e in expr)
+                or any("y'" in str(e) for e in expr)
+            ):
+                return "calculus_differential_equation"
+            if len(expr) == 2 and len(parsed.symbols) == 2:
+                return "system_linear_2x2"
+            elif len(expr) == 3 and len(parsed.symbols) == 3:
+                return "system_linear_3x3"
+            return "system_equations"
+
+        # Priority 0: Numeric equation (e.g. 5 = 5 or 5 = 10 -> BooleanTrue/False)
         if len(parsed.symbols) == 0:
             return "numeric_equation"
+
+        if not isinstance(expr, Eq):
+            return self._classify_expression(expr, parsed, chars)
 
         # Check for function definition f(x) = ...
         if isinstance(expr.lhs, (sympy.Function, sympy.core.function.AppliedUndef)):

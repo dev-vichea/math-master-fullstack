@@ -9,6 +9,7 @@ Available engines:
 - TesseractEngine: Open-source OCR via pytesseract
 - KiriEngine: Custom-trained Khmer OCR
 - Pix2TexEngine: LaTeX recognition via pix2tex
+- TrOCRVisionEngine: Fine-tuned TrOCR model for Khmer math expressions
 - MathpixEngine: Commercial math OCR API
 - GoogleVisionEngine: Google Cloud Vision API
 - GeminiVisionEngine: Google Gemini multimodal API
@@ -20,4 +21,5 @@ __all__ = [
     "BaseVisionEngine",
     "MathVisionEngine",
     "VisionResult",
+    "TrOCRVisionEngine",
 ]

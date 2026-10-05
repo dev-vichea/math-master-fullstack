@@ -101,3 +101,20 @@ dmypy.json
 *.git_backup/
 */*.git_backup/
 *.bak
+
+# Machine Learning weights & checkpoints
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+checkpoints/
+*/checkpoints/
+models/
+*/models/
+backend/training/models/
+backend/training/pix2tex/models/
+backend/training/pix2tex/data/train_images/
+backend/training/pix2tex/data/val_images/
+backend/training/pix2tex/data/*.pkl
+

@@ -1,0 +1,49 @@
+# pix2tex (LaTeX-OCR) Fine-Tuning Configuration
+# Tailored for Cambodian Math Curriculum (Grade 10-12, BacII)
+
+name: "pix2tex_khmer_math"
+model_path: "backend/training/pix2tex/models"
+output_path: "backend/training/pix2tex/outputs"
+
+# Dataset paths
+data: "backend/training/pix2tex/data/train.pkl"
+valdata: "backend/training/pix2tex/data/val.pkl"
+tokenizer: "dataset/tokenizer.json"
+
+# Hardware & Training Hyperparameters
+device: "cuda"            # Set to "mps" for Apple Silicon, "cuda" for Colab/NVIDIA GPU, or "cpu"
+batchsize: 16             # Reduce to 8 if running low on VRAM
+testbatchsize: 16
+epochs: 10
+lr: 0.0001                # 1e-4 for fine-tuning pretrained weights (gentle learning rate)
+optimizer: "Adam"
+betas: [0.9, 0.999]
+scheduler: "StepLR"
+lr_step: 5
+gamma: 0.5
+seed: 42
+wandb: false              # Set to true if you use Weights & Biases tracking
+
+# Architecture Settings (ResNet + ViT Hybrid)
+encoder_structure: "hybrid"
+backbone_layers: [2, 3, 7]
+dim: 256
+encoder_depth: 4
+heads: 8
+num_layers: 4
+patch_size: 16
+channels: 1
+num_tokens: 8000
+
+# Sequence & Image Limits
+max_seq_len: 512
+max_height: 192
+max_width: 672
+min_height: 32
+min_width: 32
+pad: false
+temperature: 0.2
+
+# Checkpoint loading
+# Set this to a path if resuming or fine-tuning from a specific checkpoint:
+load_chkpt: null

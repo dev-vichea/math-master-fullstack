@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { UploadCloud, Image as ImageIcon, Camera, Trash2, Zap, ClipboardCheck } from 'lucide-react';
 
 const SAMPLES = [
+  { label: 'អាំងតេក្រាល: ∫₂⁴ 4x dx', path: '/samples/integral_kha.png' },
+  { label: 'ឌីផេរ៉ង់ស្យែល: y\' = 2x² - x + 1', path: '/samples/differential_ex1.png' },
+  { label: 'ឌីផេរ៉ង់ស្យែលលំដាប់២: y\'\' - 3y\' + 2y = 0', path: '/samples/differential_ex7.png' },
   { label: 'ស្វ៊ីត Squeeze: lim (n²+sin n)/(5n²+cos πn)', path: '/samples/sequence_ex2.png' },
-  { label: 'ស្វ៊ីត BacII: lim (n²+3n-1)/(8n²-n+1)', path: '/samples/sequence_ex1.png' },
-  { label: 'Sample: Quadratic', path: '/samples/sample2.png' },
-  { label: 'Sample: Linear', path: '/samples/sample1.png' },
 ];
 
 export default function VisionSolver({ onVisionSolve, loading, externalFile }) {
