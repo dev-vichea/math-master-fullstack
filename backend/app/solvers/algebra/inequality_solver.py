@@ -123,11 +123,17 @@ class InequalitySolver(BaseSolver):
                 )
             ]
 
+        concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ដំណោះស្រាយនៃអសមីការគឺ {answer_str}។"
+        concl_en = f"Conclusion: Therefore, the solution to the inequality is {answer_str}."
+
         return SolveResult(
             answer=answer_str,
             variable=str(symbol),
             is_verified=True,  # Inequalities are harder to verify, trust SymPy
             steps=steps,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "inequality_type": type(expr).__name__,
                 "solution_set": str(solutions) if solutions else None,

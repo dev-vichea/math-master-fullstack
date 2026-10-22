@@ -180,12 +180,26 @@ class IntegralSolver(BaseSolver):
             except Exception:
                 is_verified = False
 
+        if is_definite:
+            concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ តម្លៃនៃអាំងតេក្រាលកំណត់គឺ {ans_str}។"
+            concl_en = f"Conclusion: Therefore, the value of the definite integral is {ans_str}."
+        else:
+            if not ans_str.endswith("+ C") and not ans_str.endswith("+C"):
+                ans_display = f"{ans_str} + C"
+            else:
+                ans_display = ans_str
+            concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ អាំងតេក្រាលគឺ {ans_display} (ដែល C ជាចំនួនថេរ)។"
+            concl_en = f"Conclusion: Therefore, the integral is {ans_display}."
+
         return SolveResult(
             answer=ans_str,
             variable=str(var),
             is_verified=is_verified,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "integrand": str(integral_obj.args[0]),
                 "variable": str(var),

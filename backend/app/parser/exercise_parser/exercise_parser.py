@@ -171,6 +171,9 @@ _COMMON_PROSE_WORDS = {
 
 def _strip_non_math_words(text: str) -> str:
     """Strip English prose words while preserving recognized mathematical functions and variable products (e.g. xy, ab)."""
+    text = re.sub(r"\\(?:operatorname\*?|mathrm)\s*\{\s*[I1l]n\s*\}", r"\\ln", text)
+    text = re.sub(r"\{[I1l]n\}", r"\\ln", text)
+    text = re.sub(r"\b[I1]n\s*(?=[a-zA-Z\(\[\{]|\\[a-zA-Z])", r"\\ln ", text)
 
     def _rep(m: re.Match) -> str:
         word = m.group(0).lower()
@@ -240,6 +243,8 @@ class SubExercise:
     raw_text: str
     expression: str
     intent: str
+    condition: str | None = None
+    condition_type: str | None = None
 
 
 @dataclass
@@ -251,6 +256,8 @@ class ParsedExercise:
     primary_expression: str | None
     detected_intent: str
     sub_exercises: list[SubExercise] = field(default_factory=list)
+    condition: str | None = None
+    condition_type: str | None = None
 
 
 def clean_math_only(text: str | None) -> str:
@@ -306,9 +313,15 @@ def clean_math_only(text: str | None) -> str:
         s = s.lstrip("= \t")
     s = re.sub(r"^[\s,;:.]+", "", s)
 
-    # 10. Clean trailing OCR noise (stray dots, commas, solitary 'i' at end)
+    # 10. Clean trailing OCR noise (stray dots, commas, solitary 'i' at end, \cdot, trailing text commands)
+    s = re.sub(r"\s*\\(?:mathrm|text|mathit|mathbf|textbf|scriptsize|footnotesize|tiny)\b.*$", "", s)
+    s = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(?:\^\{?\\infty\}?|\\cdot|\\bullet|\\vdash|\\uparrow|\\downarrow|[iIvV|\\~ฯ.,;])+\s*$", "", s)
+    s = re.sub(r"[\s\\]*(?:\\cdot|\\bullet|[.។,;])+\s*$", "", s)
     s = re.sub(r"[\s,;:.|~]+$", "", s)
     s = re.sub(r"(?<=\d|\)|\]|\})\s+i\s*$", "", s)
+    while s.count(r"\}") > s.count(r"\{"):
+        idx = s.rfind(r"\}")
+        s = s[:idx] + s[idx + 2 :]
 
     return re.sub(r"\s+", " ", s).strip()
 
@@ -363,6 +376,12 @@ def _extract_single_math_expression(text: str) -> str | None:
         if best.endswith("=") and not best.endswith("=="):
             best = best[:-1].rstrip()
         best = best.strip(".:;, \u17d4\u17d5")
+    best = re.sub(r"\s*\\(?:mathrm|text|mathit|mathbf|textbf|scriptsize|footnotesize|tiny)\b.*$", "", best)
+    best = re.sub(r"(?<=[0-9a-zA-Z\)\]\}])\s*(?:\^\{?\\infty\}?|\\cdot|\\bullet|\\vdash|\\uparrow|\\downarrow|[iIvV|\\~ฯ.,;])+\s*$", "", best)
+    best = re.sub(r"[\s\\]*(?:\\cdot|\\bullet|[.។,;])+\s*$", "", best)
+    while best.count(r"\}") > best.count(r"\{"):
+        idx = best.rfind(r"\}")
+        best = best[:idx] + best[idx + 2 :]
     while best.endswith("\\"):
         best = best[:-1].rstrip(".:;, \u17d4\u17d5")
 
@@ -387,8 +406,15 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
             sub_exercises=[],
         )
 
-    # 1. OCR sanitization + LaTeX text unwrapping + Khmer normalization
-    pre_cleaned = raw_text.replace(r"\operatorname*{lim}", r"\lim").replace(
+    # 1. Extract domain conditions, constraints, or Cauchy conditions before normalization
+    from app.ocr.normalization.condition_extractor import extract_condition_and_math
+
+    formula_text, top_cond = extract_condition_and_math(raw_text)
+    overall_condition: str | None = top_cond.normalized_condition if top_cond else None
+    overall_condition_type: str | None = top_cond.condition_type if top_cond else None
+
+    # OCR sanitization + LaTeX text unwrapping + Khmer normalization
+    pre_cleaned = formula_text.replace(r"\operatorname*{lim}", r"\lim").replace(
         r"\operatorname{lim}", r"\lim"
     )
     # Unwrap LaTeX text commands (e.g. \text{គណនា } -> គណនា)
@@ -461,17 +487,35 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
         elif not instruction:
             instruction = sub_raw.strip(" \t\r\n:៖.-")
 
-    # 5. Determine primary expression
+    # 5. Determine primary expression and extract any domain conditions
+    from app.ocr.normalization.condition_extractor import extract_condition_and_math
+
     if sub_exercises:
         for s in sub_exercises:
-            s.expression = clean_math_only(s.expression)
+            clean_s, s_cond = extract_condition_and_math(s.expression)
+            s.expression = clean_math_only(clean_s)
+            if s_cond:
+                s.condition = s_cond.normalized_condition
+                s.condition_type = s_cond.condition_type
+                if not overall_condition:
+                    overall_condition = s_cond.normalized_condition
+                    overall_condition_type = s_cond.condition_type
+        if overall_condition:
+            for s in sub_exercises:
+                if not s.condition:
+                    s.condition = overall_condition
+                    s.condition_type = overall_condition_type
         primary_expr = sub_exercises[0].expression
     else:
         candidate_primary = _extract_single_math_expression(body_text)
         primary_expr = candidate_primary if _is_valid_math_expression(candidate_primary) else None
 
     if primary_expr:
-        primary_expr = clean_math_only(primary_expr)
+        clean_p, p_cond = extract_condition_and_math(primary_expr)
+        primary_expr = clean_math_only(clean_p)
+        if p_cond and not overall_condition:
+            overall_condition = p_cond.normalized_condition
+            overall_condition_type = p_cond.condition_type
 
     # 6. Determine overall intent
     overall_intent = _intent_classifier.classify(normalized)
@@ -490,4 +534,6 @@ def parse_exercise(raw_text: str) -> ParsedExercise:
         primary_expression=primary_expr,
         detected_intent=overall_intent.value,
         sub_exercises=sub_exercises,
+        condition=overall_condition,
+        condition_type=overall_condition_type,
     )

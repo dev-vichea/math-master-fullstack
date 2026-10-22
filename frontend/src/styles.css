@@ -235,3 +235,13 @@ body > .ML__keyboard {
   z-index: 10000 !important;
 }
 
+/* KaTeX display mode clean center and compact margin */
+.katex-display {
+  margin: 0.35em 0 !important;
+  text-align: center !important;
+}
+
+.katex-display > .katex {
+  text-align: center !important;
+}
+

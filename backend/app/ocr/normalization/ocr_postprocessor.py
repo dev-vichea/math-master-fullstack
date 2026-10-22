@@ -83,6 +83,9 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     text = re.sub(r"ឌីផេរ៉ង់ស្យែល\s+\d+\s+លីនេ", "ឌីផេរ៉ង់ស្យែល លីនេ", text)
     text = re.sub(r"លីនេអ៊ែ(?!រ)", "លីនេអ៊ែរ", text)
     text = re.sub(r"\bក្នង\b", "ក្នុង", text)
+    text = re.sub(r"កំ[នណ]ត់[លេើ]+", "កំណត់លើ", text)
+    text = re.sub(r"លើ\s*ចន្លោះ", "លើចន្លោះ", text)
+    text = re.sub(r"លក្ខខ[ណ្ឌខ]+ដើម", "លក្ខខណ្ឌដើម", text)
     # OCR confusion where italic function 'f' in prose is misrecognized as slash '/'
     text = re.sub(r"(?:គេឱ្យ|គេឲ្យ)\s*[/]\s*", "គេឱ្យ f ", text)
     text = re.sub(r"[/]\s*ជាអនុគមន៍", "f ជាអនុគមន៍", text)
@@ -101,6 +104,9 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     # 4. Standardize minus signs
     for dash in _MINUS_VARIANTS:
         text = text.replace(dash, "-")
+    text = re.sub(r"([(\[,;])\s*-\s*(\d+)", r"\1-\2", text)
+
+
 
     # 5. Standardize multiplication signs
     for mult in _MULT_VARIANTS:
@@ -286,8 +292,13 @@ def sanitize_ocr_math_text(raw_text: str) -> str:
     text = re.sub(r"([0-9a-zA-Z\)])\s*v\'", r"\1y'", text)
     text = re.sub(r"\bv\'\b", "y'", text)
     text = re.sub(r"(?<!\\frac)(?<!\})\s*\{y\}", " y", text)
-    # 17b. Inx / In x / 1nx -> \ln x
-    text = re.sub(r"\b[I1]n\s*([a-zA-Z\(])", r"\\ln \1", text)
+    # 17b. Inx / In x / 1nx / {In} -> \ln x
+    text = re.sub(r"\\(?:operatorname\*?|mathrm)\s*\{\s*[I1l]n\s*\}", r"\\ln", text)
+    text = re.sub(r"\{[I1l]n\}", r"\\ln", text)
+    text = re.sub(r"\b[I1]n\s*(?=[a-zA-Z\(\[\{]|\\[a-zA-Z])", r"\\ln ", text)
+    text = re.sub(r"(?<=[a-zA-Z\s\-+,])\\(?:mathcal\{D\}|partial)(?=[a-zA-Z0-9\s\-+,)\}]|\\(?:neq|ne|le|ge|=|<|>)|$)", "b", text)
+    text = re.sub(r"\\neq\s*([a-zA-Z0-9])", r"\\neq \1", text)
+    text = re.sub(r"\\(cos|sin|tan)\s*\\(?:delta|sigma)(?![a-zA-Z])\s*([a-zA-Z0-9\(])", r"\\\1 6\2", text)
     # 17c. e* -> e^x, ex* / e3* -> e^{3x}, e-2x -> e^{-2x}, e^{-2\lambda} -> e^{-2x}
     text = re.sub(r"\be\s*\*\b", "e^x", text)
     text = re.sub(r"\be\s*([0-9]+)\s*\*", r"e^{\1x}", text)

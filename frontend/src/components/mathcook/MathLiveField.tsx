@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
-import { Keyboard, ArrowRight, Trash2 } from "lucide-react";
+import { Keyboard, ArrowRight, Trash2, X, Plus } from "lucide-react";
 import { MathView } from "@/components/ui/MathView";
 import { mcButton } from "./primitives";
 import { cn } from "@/lib/utils";
@@ -66,6 +66,11 @@ export function cleanMinimalMath(input: string): string {
   s = s.replace(/[\s,;:.|~]+$/, "");
   s = s.replace(/(?<=\d|\)|\]|\})\s+i\s*$/, "");
 
+  // 10. Clean trailing domain intervals if formula already contains '=' (e.g. y' = ... (-1, 1))
+  if (s.includes("=")) {
+    s = s.replace(/[,;\s]*(?:x\s*\\in\s*)?(?:\\left)?\s*[([][\s]*[-+]?\d+(?:\.\d+)?\s*[,;\s]+\s*[-+]?\d+(?:\.\d+)?\s*(?:\\right)?\s*[)\]]\s*$/, "");
+  }
+
   return s.replace(/\s+/g, " ").trim();
 }
 
@@ -74,19 +79,19 @@ export const formatTextAndMathForMathLive = cleanMinimalMath;
 
 // Quick math symbol templates using MathLive's smart insertion tokens (#@ = selection, #? = placeholder)
 export const MATH_SYMBOLS = [
-  { label: "\\frac{a}{b}", latex: "\\frac{#@}{#?}", desc: "Fraction" },
-  { label: "\\sqrt{x}", latex: "\\sqrt{#@}", desc: "Square root" },
-  { label: "x^2", latex: "^{2}", desc: "Square" },
-  { label: "x^n", latex: "^{#?}", desc: "Power / Exponent" },
+  { label: "\\frac{\\square}{\\square}", latex: "\\frac{#@}{#?}", desc: "Fraction" },
+  { label: "\\sqrt{\\square}", latex: "\\sqrt{#@}", desc: "Square root" },
+  { label: "\\square^2", latex: "^{2}", desc: "Square" },
+  { label: "\\square^{\\square}", latex: "^{#?}", desc: "Power / Exponent" },
   { label: "\\int", latex: "\\int #@ \\, dx", desc: "Indefinite Integral" },
-  { label: "\\int_a^b", latex: "\\int_{#?}^{#?} #@ \\, dx", desc: "Definite Integral" },
+  { label: "\\int_{\\square}^{\\square}", latex: "\\int_{#?}^{#?} #@ \\, dx", desc: "Definite Integral" },
   { label: "y'", latex: "y'", desc: "First derivative" },
   { label: "y''", latex: "y''", desc: "Second derivative" },
   { label: "\\frac{dy}{dx}", latex: "\\frac{dy}{dx}", desc: "Leibniz derivative" },
   { label: "\\lim", latex: "\\lim_{x \\to 0} #@", desc: "Limit as x approaches 0" },
   { label: "\\lim_{\\infty}", latex: "\\lim_{x \\to +\\infty} #@", desc: "Limit as x approaches infinity" },
-  { label: "e^x", latex: "e^{#?}", desc: "Exponential" },
-  { label: "\\ln(x)", latex: "\\ln(#@)", desc: "Natural log" },
+  { label: "e^{\\square}", latex: "e^{#?}", desc: "Exponential" },
+  { label: "\\ln(\\square)", latex: "\\ln(#@)", desc: "Natural log" },
   { label: "\\sin", latex: "\\sin(#@)", desc: "Sine" },
   { label: "\\cos", latex: "\\cos(#@)", desc: "Cosine" },
   { label: "\\tan", latex: "\\tan(#@)", desc: "Tangent" },
@@ -109,10 +114,14 @@ export interface MathLiveFieldRef {
 export interface MathLiveFieldProps {
   value: string;
   onChange: (val: string) => void;
-  onSubmit?: () => void;
-  placeholder?: string;
-  className?: string;
-  autoFocus?: boolean;
+  onSubmit?: (() => void) | undefined;
+  placeholder?: string | undefined;
+  className?: string | undefined;
+  autoFocus?: boolean | undefined;
+  subLabel?: string | undefined;
+  onSubLabelChange?: ((val: string) => void) | undefined;
+  onSubLabelClear?: (() => void) | undefined;
+  condition?: string | null | undefined;
 }
 
 export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
@@ -124,6 +133,10 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
       placeholder = "Type your equation or problem text...",
       className,
       autoFocus = false,
+      subLabel,
+      onSubLabelChange,
+      onSubLabelClear,
+      condition,
     },
     ref
   ) {
@@ -132,6 +145,8 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
     const [mounted, setMounted] = useState(false);
     const [keyboardActive, setKeyboardActive] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const [showInstructionInput, setShowInstructionInput] = useState(false);
+    const instructionInputRef = useRef<HTMLInputElement>(null);
 
     // Provide methods to parent components via ref
     useImperativeHandle(ref, () => ({
@@ -452,8 +467,9 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
       }
     };
 
-    const hasContent = Boolean(value && value.trim());
+    const hasContent = Boolean((value && value.trim()) || (subLabel && subLabel.trim()));
     const isExpanded = isFocused || hasContent;
+    const isInstructionOpen = Boolean(isExpanded && (Boolean(subLabel) || showInstructionInput));
 
     return (
       <div
@@ -464,17 +480,78 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
             setIsFocused(true);
           }
         }}
-        className={cn("w-full transition-all duration-300", className)}
+        className={cn("group/mathcontainer relative w-full transition-all duration-300", className)}
       >
         {/* Collapsible Field Box: Clean, minimal shadow */}
         <div
           className={cn(
-            "group relative rounded-[2rem] bg-card border border-border/80 shadow-xs transition-all duration-200 ease-in-out focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/30 focus-within:shadow-sm",
+            "group relative rounded-[2rem] bg-card border border-border/80 shadow-xs transition-all duration-300 ease-out focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/30 focus-within:shadow-sm",
             isExpanded
               ? "flex flex-col justify-between min-h-[115px] p-3.5 sm:p-4"
               : "flex flex-row items-center justify-between min-h-[66px] sm:min-h-[70px] px-4 sm:px-5 py-2.5 sm:py-3 cursor-pointer hover:border-primary/40"
           )}
         >
+          {/* Top Instruction Row + Divider (Smooth Expand Animation) */}
+          <div
+            style={{
+              gridTemplateRows: isInstructionOpen ? "1fr" : "0fr",
+            }}
+            className={cn(
+              "grid w-full transition-[grid-template-rows,opacity] duration-300 ease-out",
+              !isExpanded
+                ? "hidden"
+                : isInstructionOpen
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-1 py-0.5">
+                <div className="flex flex-1 items-center gap-2 overflow-hidden">
+                  <input
+                    ref={instructionInputRef}
+                    type="text"
+                    value={subLabel || ""}
+                    onChange={(e) => onSubLabelChange?.(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        mfRef.current?.focus();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!subLabel?.trim()) {
+                        setShowInstructionInput(false);
+                      }
+                    }}
+                    placeholder="e.g. ក. ដោះស្រាយសមីការ..."
+                    className="w-full bg-transparent font-sans text-sm sm:text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground/40 leading-relaxed"
+                  />
+                  {condition && (
+                    <span className="shrink-0 rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                      {condition}
+                    </span>
+                  )}
+                </div>
+                {onSubLabelClear && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      onSubLabelClear();
+                      setShowInstructionInput(false);
+                    }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                    title="Clear instruction"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="mt-1 mb-2.5 h-[1px] w-full bg-border/80" />
+            </div>
+          </div>
+
           {/* Collapsed Left: Virtual keyboard button */}
           {!isExpanded && (
             <button
@@ -560,10 +637,11 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
             </button>
           )}
 
-          {/* Expanded Bottom Action Row & Empty Hint */}
+          {/* Expanded Bottom Action Row (Sketch Design) */}
           {isExpanded && (
             <div className="flex items-center justify-between gap-3 pt-2 w-full animate-in fade-in duration-200">
-                {/* Left: Virtual keyboard button */}
+              {/* Left: Circle Virtual keyboard button + Add Instruction toggle */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
@@ -572,7 +650,7 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-150 active:translate-y-0.5",
                     keyboardActive
                       ? "bg-primary text-primary-foreground shadow-[0_3px_0_0_var(--primary-deep)]"
-                    : "bg-primary-soft text-primary hover:bg-primary hover:text-primary-foreground shadow-sm"
+                      : "bg-primary-soft text-primary hover:bg-primary hover:text-primary-foreground shadow-sm"
                   )}
                   title="Toggle Math Virtual Keyboard"
                   aria-label="Toggle Math Virtual Keyboard"
@@ -580,42 +658,58 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
                   <Keyboard className="h-5 w-5" />
                 </button>
 
-                {/* Right: Clear button & Prominent Cook It button */}
-                <div className="flex items-center gap-2">
-                  {value && (
-                    <button
-                      type="button"
-                      onClick={handleClear}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-                      title="Clear problem"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-
-                  {onSubmit && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const mvk =
-                          typeof window !== "undefined"
-                            ? (window as any).mathVirtualKeyboard
-                            : null;
-                        if (mvk?.visible) {
-                          mvk.hide({ animate: true });
-                        }
-                        onSubmit();
-                      }}
-                      className={cn(
-                        mcButton({ size: "lg" }),
-                        "shrink-0 shadow-xs hover:shadow-sm px-7 font-bold"
-                      )}
-                    >
-                      Cook It <ArrowRight className="h-5 w-5" />
-                    </button>
-                  )}
-                </div>
+                {!subLabel && !showInstructionInput && onSubLabelChange && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInstructionInput(true);
+                      setTimeout(() => instructionInputRef.current?.focus(), 50);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors"
+                    title="Add problem instruction or prefix"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Instruction</span>
+                  </button>
+                )}
               </div>
+
+              {/* Right: Clear button & Prominent Oval Cook It button */}
+              <div className="flex items-center gap-2">
+                {value && (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                    title="Clear problem"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+
+                {onSubmit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const mvk =
+                        typeof window !== "undefined"
+                          ? (window as any).mathVirtualKeyboard
+                          : null;
+                      if (mvk?.visible) {
+                        mvk.hide({ animate: true });
+                      }
+                      onSubmit();
+                    }}
+                    className={cn(
+                      mcButton({ size: "sm" }),
+                      "shrink-0 h-10 px-5 text-sm font-bold rounded-full shadow-xs hover:shadow-sm"
+                    )}
+                  >
+                    Cook It <ArrowRight className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
@@ -636,7 +730,7 @@ export const MathLiveField = forwardRef<MathLiveFieldRef, MathLiveFieldProps>(
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => insertSymbol(s.latex)}
                 title={s.desc}
-                className="flex h-9 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card px-3.5 font-display text-sm font-bold text-foreground shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/60 hover:bg-primary-soft hover:text-primary active:translate-y-0"
+                className="flex h-9 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card px-3.5 font-display text-sm font-bold text-foreground shadow-none transition-all duration-150 hover:border-primary/60 hover:bg-primary-soft hover:text-primary active:scale-95"
               >
                 <MathView math={s.label} className="pointer-events-none scale-95" />
               </button>

@@ -28,6 +28,9 @@ class SolveResult:
     steps: list[SolutionStep] = field(default_factory=list)
     metadata: dict[str, any] = field(default_factory=dict)
     lesson_info: dict[str, any] | None = None
+    teacher_header: str | None = "ដំណោះស្រាយ និងការពន្យល់លម្អិត"
+    conclusion_km: str | None = None
+    conclusion_en: str | None = None
 
     def __post_init__(self):
         """Ensure steps are valid SolutionStep instances."""

@@ -15,9 +15,13 @@ from enum import Enum
 
 class MathIntent(str, Enum):
     SOLVE_EQUATION = "solve_equation"
+    SOLVE_DIFFERENTIAL_EQUATION = "solve_differential_equation"
     EVALUATE_EXPRESSION = "evaluate_expression"
+    EVALUATE_INTEGRAL = "evaluate_integral"
+    EVALUATE_LIMIT = "evaluate_limit"
     SIMPLIFY_EXPRESSION = "simplify_expression"
     UNKNOWN = "unknown"
+
 
 
 class IntentClassifier(ABC):
@@ -127,6 +131,61 @@ _WORD_PROBLEM_KEYWORDS_EN = [
 ]
 
 
+_DIFF_EQ_KEYWORDS_KM = [
+    "សមីការឌីផេរ៉ង់ស្យែល",  # differential equation
+    "ឌីផេរ៉ង់ស្យែល",  # differential
+    "លក្ខខណ្ឌដើម",  # initial condition
+    "ដោះស្រាយសមីការឌីផេរ៉ង់ស្យែល",
+]
+
+_DIFF_EQ_KEYWORDS_EN = [
+    "differential equation",
+    "differential",
+    "initial condition",
+    "cauchy",
+    "ode",
+]
+
+_INTEGRAL_KEYWORDS_KM = [
+    "អាំងតេក្រាល",  # integral
+    "គណនាអាំងតេក្រាល",  # calculate integral
+    "ព្រីមីទីវ",  # primitive / antiderivative
+]
+
+_INTEGRAL_KEYWORDS_EN = [
+    "integral",
+    "integrate",
+    "antiderivative",
+    "definite integral",
+    "indefinite integral",
+]
+
+_LIMIT_KEYWORDS_KM = [
+    "លីមីត",  # limit
+    "គណនាលីមីត",  # calculate limit
+]
+
+_LIMIT_KEYWORDS_EN = [
+    "limit",
+    "limits",
+    "evaluate the limit",
+]
+
+_DIFF_EQ_STRUCTURAL_PATTERN = re.compile(
+    r"(?:"
+    r"y\s*['’]"
+    r"|\\frac\{d\^?\d*y\}\{dx\^?\d*\}"
+    r"|\bdy\s*/\s*dx\b"
+    r"|y\s*\(\s*\d+\s*\)\s*="
+    r"|\by''?\b"
+    r")"
+)
+
+_INTEGRAL_STRUCTURAL_PATTERN = re.compile(r"\\(?:int|iint|iiint)(?![a-zA-Z])|[∫∬∭]")
+_LIMIT_STRUCTURAL_PATTERN = re.compile(r"\\lim(?![a-zA-Z])|\\operatorname\*?\{lim\}")
+
+
+
 def _contains_word(text_lower: str, keywords: list[str]) -> bool:
     """Check if any keyword is present in text with word boundaries for Latin words."""
     for kw in keywords:
@@ -143,6 +202,28 @@ def _contains_word(text_lower: str, keywords: list[str]) -> bool:
 class RuleBasedIntentClassifier(IntentClassifier):
     def classify(self, normalized_text: str) -> MathIntent:
         text_lower = normalized_text.lower()
+
+        # Priority -1: Specialized mathematical structures & domains
+        has_diff_eq_kw = _contains_word(text_lower, _DIFF_EQ_KEYWORDS_KM + _DIFF_EQ_KEYWORDS_EN)
+        has_diff_eq_struct = bool(_DIFF_EQ_STRUCTURAL_PATTERN.search(normalized_text))
+        if has_diff_eq_kw or has_diff_eq_struct:
+            return MathIntent.SOLVE_DIFFERENTIAL_EQUATION
+
+        has_integral_kw = _contains_word(text_lower, _INTEGRAL_KEYWORDS_KM + _INTEGRAL_KEYWORDS_EN)
+        has_integral_struct = bool(_INTEGRAL_STRUCTURAL_PATTERN.search(normalized_text))
+        if has_integral_kw or has_integral_struct:
+            return MathIntent.EVALUATE_INTEGRAL
+
+        has_limit_kw = _contains_word(text_lower, _LIMIT_KEYWORDS_KM + _LIMIT_KEYWORDS_EN)
+        has_limit_struct = bool(_LIMIT_STRUCTURAL_PATTERN.search(normalized_text))
+        if has_limit_kw or has_limit_struct:
+            return MathIntent.EVALUATE_LIMIT
+
+        # Priority -0.5: Pure domain condition or interval without equation/operation is not a solve/evaluate request
+        if re.match(r"^\s*(?:កំណត់លើ|លើចន្លោះ|លើ|ចំពោះ|where\b|for\b)\s*.*$", text_lower) and not any(
+            op in normalized_text for op in ["=", "+", "*", "/", r"\int", r"\lim"]
+        ):
+            return MathIntent.UNKNOWN
 
         # Priority 0: Fraction or percentage keywords override general keywords
         has_fraction = _contains_word(text_lower, _FRACTION_KEYWORDS)
@@ -182,3 +263,6 @@ class RuleBasedIntentClassifier(IntentClassifier):
             return MathIntent.EVALUATE_EXPRESSION
 
         return MathIntent.UNKNOWN
+
+
+

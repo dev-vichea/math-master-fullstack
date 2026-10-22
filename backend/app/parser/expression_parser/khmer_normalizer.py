@@ -16,6 +16,15 @@ _PUNCTUATION_MAP = {
 }
 
 
+# Khmer domain keyword normalization mapping (OCR typos to canonical form)
+_DOMAIN_KEYWORD_REPAIRS = [
+    (r"កំ[នណ]ត់[លេើ]+", "កំណត់លើ"),
+    (r"លើ\s*ចន្លោះ", "លើចន្លោះ"),
+    (r"លក្ខខ[ណ្ឌខ]+ដើម", "លក្ខខណ្ឌដើម"),
+    (r"ផ្[ទៀទ]ងផ្ទាត់", "ផ្ទៀងផ្ទាត់"),
+]
+
+
 def convert_percentages_to_decimals(text: str) -> str:
     """
     Convert percentage expressions to decimal form before SymPy parsing.
@@ -46,6 +55,8 @@ def normalize_khmer_text(text: str) -> str:
     - Unicode-normalize (NFC) so combining Khmer diacritics compare equal.
     - Convert Khmer digits to Arabic digits.
     - Map Khmer punctuation to ASCII equivalents.
+    - Repair common OCR domain keywords (កំណត់លើ, លក្ខខណ្ឌដើម).
+    - Standardize minus/dash variants in intervals.
     - Convert percentages to decimal/fractional form.
     - Collapse whitespace.
     """
@@ -53,9 +64,20 @@ def normalize_khmer_text(text: str) -> str:
     text = khmer_digits_to_arabic(text)
     for khmer_char, latin_char in _PUNCTUATION_MAP.items():
         text = text.replace(khmer_char, latin_char)
+
+    # Repair OCR errors in Khmer domain terms
+    for pattern, replacement in _DOMAIN_KEYWORD_REPAIRS:
+        text = re.sub(pattern, replacement, text)
+
+    # Standardize minus and dash variants commonly found in intervals (e.g. (-1, 1))
+    text = re.sub(r"[—–−‐]", "-", text)
+    text = re.sub(r"([(\[,;])\s*-\s*(\d+)", r"\1-\2", text)
+
+
     text = convert_percentages_to_decimals(text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s+", "\n", text)
     text = re.sub(r"\s+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+

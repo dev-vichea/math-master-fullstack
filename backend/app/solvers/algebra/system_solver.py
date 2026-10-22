@@ -97,6 +97,7 @@ class SystemSolver(BaseSolver):
                     expression=eqs_latex,
                     title_km="ប្រព័ន្ធសមីការដើម",
                     title_en="Original System of Equations",
+                    teacher_note="ពិនិត្យមើលប្រព័ន្ធសមីការ និងជ្រើសរើសវិធីសាស្ត្រដោះស្រាយ (វិធីជំនួស ឬវិធីបំបាត់មេគុណ)",
                 ),
                 SolutionStep(
                     order=2,
@@ -105,6 +106,7 @@ class SystemSolver(BaseSolver):
                     expression=ans_str,
                     title_km="ដំណោះស្រាយប្រព័ន្ធសមីការ",
                     title_en="System Solution",
+                    teacher_note="អនុវត្តវិធីដោះស្រាយដើម្បីរកតម្លៃអថេរនីមួយៗ",
                 ),
                 SolutionStep(
                     order=3,
@@ -113,14 +115,21 @@ class SystemSolver(BaseSolver):
                     expression=f"{tuple_vars} = {tuple_vals}",
                     title_km="សន្និដ្ឋានចម្លើយ",
                     title_en="Final Conclusion",
+                    teacher_note="ផ្ទៀងផ្ទាត់គូចម្លើយដែលរកឃើញទៅក្នុងសមីការដើមទាំងពីរដើម្បីឱ្យប្រាកដថាត្រឹមត្រូវ 100%",
                 ),
             ]
+
+            concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ គូចម្លើយនៃប្រព័ន្ធសមីការគឺ {tuple_vars} = {tuple_vals}។"
+            concl_en = f"Conclusion: Therefore, the solution to the system of equations is {tuple_vars} = {tuple_vals}."
 
             return SolveResult(
                 answer=ans_str,
                 variable=", ".join(str(s) for s in symbols),
                 is_verified=True,
                 steps=steps,
+                teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+                conclusion_km=concl_km,
+                conclusion_en=concl_en,
                 metadata={
                     "problem_type": problem_type,
                     "solutions": [{str(k): str(v) for k, v in s_item.items()} for s_item in sols],

@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     glossary,
     health,
     history,
+    i18n,
     parse,
     solve,
     vision,
@@ -21,3 +22,4 @@ api_router.include_router(history.router)
 api_router.include_router(exercises.router, prefix="/exercises", tags=["exercises"])
 api_router.include_router(worksheets.router)
 api_router.include_router(glossary.router)
+api_router.include_router(i18n.router)

@@ -123,14 +123,23 @@ class EquationSolver(BaseSolver):
         # Format answer
         if len(solutions) > 1:
             answer = ", ".join(str(s) for s in solutions)
+            sol_str_km = " ឬ ".join(f"{symbol} = {s}" for s in solutions)
+            sol_str_en = " or ".join(f"{symbol} = {s}" for s in solutions)
+            concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ សមីការមានឫស {sol_str_km}។"
+            concl_en = f"Conclusion: Therefore, the solutions are {sol_str_en}."
         else:
             answer = str(primary_solution)
+            concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ចម្លើយនៃសមីការគឺ {symbol} = {primary_solution}។"
+            concl_en = f"Conclusion: Therefore, the solution is {symbol} = {primary_solution}."
 
         return SolveResult(
             answer=answer,
             variable=str(symbol),
             is_verified=is_verified,
             steps=steps,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "solution_count": len(solutions),
                 "all_solutions": [str(s) for s in solutions],

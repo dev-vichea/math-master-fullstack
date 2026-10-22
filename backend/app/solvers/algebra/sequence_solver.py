@@ -205,12 +205,18 @@ class SequenceSolver(BaseSolver):
         lesson_meta = knowledge_reg.get_metadata(method_id)
         lesson_info = lesson_meta.to_dict() if lesson_meta else None
 
+        concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ តួទូទៅនៃស្វ៊ីតគឺ {seq_name}_n = {latex(an)} និងលីមីត \\lim_{{n \\to +\\infty}} {seq_name}_n = {lim_str} ({'ស្វ៊ីតរួម' if convergence == 'convergent' else 'ស្វ៊ីតរីក'})។"
+        concl_en = f"Conclusion: Therefore, the general term is {seq_name}_n = {latex(an)} and the limit is {lim_str} ({convergence})."
+
         return SolveResult(
             answer=ans_str,
             variable=seq_name,
             is_verified=True,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "problem_type": "sequence_recurrence",
                 "method_id": method_id,
@@ -335,12 +341,18 @@ class SequenceSolver(BaseSolver):
         lesson_meta = knowledge_reg.get_metadata(method_id)
         lesson_info = lesson_meta.to_dict() if lesson_meta else None
 
+        concl_lim_km = f"សន្និដ្ឋាន៖ ដូចនេះ លីមីតនៃស្វ៊ីតគឺ {lim_str}។"
+        concl_lim_en = f"Conclusion: Therefore, the limit of the sequence is {lim_str}."
+
         return SolveResult(
             answer=ans_str,
             variable=str(var),
             is_verified=True,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_lim_km,
+            conclusion_en=concl_lim_en,
             metadata={
                 "problem_type": "sequence_limit",
                 "method_id": method_id,
@@ -407,12 +419,19 @@ class SequenceSolver(BaseSolver):
         lesson_meta = knowledge_reg.get_metadata(method_id)
         lesson_info = lesson_meta.to_dict() if lesson_meta else None
 
+        conv_km_label = "ស្វ៊ីតរួម" if convergence == "convergent" else "ស្វ៊ីតរីក"
+        concl_gen_km = f"សន្និដ្ឋាន៖ ដូចនេះ លីមីតនៃស្វ៊ីតគឺ {lim_str} នាំឱ្យ {seq_label} ជា{conv_km_label}។"
+        concl_gen_en = f"Conclusion: Therefore, the limit is {lim_str}, so {seq_label} is {convergence}."
+
         return SolveResult(
             answer=ans_str,
             variable=seq_label,
             is_verified=True,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_gen_km,
+            conclusion_en=concl_gen_en,
             metadata={
                 "problem_type": "sequence_convergence",
                 "method_id": method_id,

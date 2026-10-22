@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 import sympy
-from sympy import Limit, S, Symbol, factor, latex, oo, trigsimp
+from sympy import Limit, S, Symbol, cancel, expand, factor, latex, oo, trigsimp
 
 from app.api.schemas.responses import SolutionStep
 from app.reasoning.steps.base import StepGenerator
@@ -175,11 +175,12 @@ class LimitStepGenerator(StepGenerator):
         steps.append(
             SolutionStep(
                 order=order,
+                title_km="កំណត់កន្សោមលីមីតដើម",
+                title_en="Identify Limit Expression",
                 description_km="កំណត់កន្សោមលីមីតដើម៖",
                 description_en="Given limit expression:",
                 expression=orig_latex,
-                title_km="កំណត់កន្សោមលីមីតដើម",
-                title_en="Identify Limit Expression",
+                teacher_note=f"ត្រូវគណនាដែនកំណត់នៃអនុគមន៍ $f({var}) = {_clean_latex_expr(f)}$ នៅពេល ${var} \\to {pt_str}$។",
                 rationale_km=f"កត់សម្គាល់អនុគមន៍ f({var}) = {_clean_latex_expr(f)} និងចំណុចខិតជិត {var} \\to {pt_str}។",
                 rationale_en=f"Identify the function f({var}) = {_clean_latex_expr(f)} and the approach point {var} -> {pt_str}.",
             )
@@ -215,17 +216,27 @@ class LimitStepGenerator(StepGenerator):
 
         # Step 2: Test Direct Substitution / Indeterminate Form
         if is_indeterminate_0_0:
+            sub_num_expr = latex(num).replace(str(var), str(pt_str))
+            sub_den_expr = latex(den).replace(str(var), str(pt_str))
+            test_sub_expr = (
+                rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}}"
+                "\n"
+                rf"= \frac{{{sub_num_expr}}}{{{sub_den_expr}}} = \frac{{0}}{{0}}"
+            )
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="ជំនួសតម្លៃសាកល្បង (Test Substitution)",
+                    title_en="Test Substitution",
                     description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ដោយផ្ទាល់ នាំឱ្យមានរាងមិនកំណត់ $\\frac{{0}}{{0}}$៖",
                     description_en=f"Direct substitution of ${var} = {pt_str}$ yields indeterminate form $\\frac{{0}}{{0}}$:",
-                    expression=f"\\frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} \\xrightarrow{{{var} = {pt_str}}} \\frac{{0}}{{0}} \\quad \\text{{(រាងមិនកំណត់)}}",
-                    title_km="កំណត់រាងមិនកំណត់ [0/0]",
-                    title_en="Identify Indeterminate Form [0/0]",
+                    expression=test_sub_expr,
+                    teacher_note=f"មុនដំបូង ត្រូវយកតម្លៃដែល ${var}$ ខិតជិត (គឺ ${var} = {pt_str}$) ជំនួសចូលក្នុងកន្សោមសិន៖",
+                    details=[f"ជំនួសតម្លៃ ${var} = {pt_str}$ ចូលក្នុងភាគយក និងភាគបែង"],
+                    important_note=r"ចំណាំ៖ ពេលជំនួសទៅឃើញលទ្ធផល $\frac{0}{0}$ គេហៅថា «ទម្រង់មិនកំណត់» (Indeterminate Form)។ ត្រូវបំប្លែងកន្សោមដើម្បីសម្រួលកត្តាសូន្យ។",
                     rationale_km=f"ការជំនួសផ្ទាល់នាំឱ្យបានភាគយក និងភាគបែងស្មើសូន្យ ដូច្នេះត្រូវលុបរាងមិនកំណត់ [0/0]។",
                     rationale_en="Direct substitution yields 0/0, requiring algebraic transformation to cancel the zero factor.",
-                    rule_formula=r"\left[\frac{0}{0}\right]",
+                    rule_formula=None,
                 )
             )
             order += 1
@@ -233,14 +244,16 @@ class LimitStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
-                    description_km=f"នៅពេល ${var} \\to {pt_str}$ កន្សោមមានរាងមិនកំណត់ $\\frac{{\\infty}}{{\\infty}}$៖",
-                    description_en=f"As ${var} \\to {pt_str}$, expression has indeterminate form $\\frac{{\\infty}}{{\\infty}}$:",
-                    expression=r"\frac{\infty}{\infty} \quad \text{(រាងមិនកំណត់)}",
                     title_km="កំណត់រាងមិនកំណត់ [∞/∞]",
                     title_en="Identify Indeterminate Form [∞/∞]",
+                    description_km=f"នៅពេល ${var} \\to {pt_str}$ កន្សោមមានរាងមិនកំណត់ $\\frac{{\\infty}}{{\\infty}}$៖",
+                    description_en=f"As ${var} \\to {pt_str}$, expression has indeterminate form $\\frac{{\\infty}}{{\\infty}}$:",
+                    expression=r"\frac{\infty}{\infty}",
+                    teacher_note=f"នៅពេល ${var} \\to {pt_str}$ ភាគយក និងភាគបែងសុទ្ធតែកើនឡើងឥតព្រំដែន នាំឱ្យបានរាងមិនកំណត់ $\\frac{{\\infty}}{{\\infty}}$។",
+                    important_note=r"ចំណាំ៖ សម្រាប់រាង $\frac{\infty}{\infty}$ នៃពហុធា ត្រូវទាញតួដែលមានដឺក្រេខ្ពស់បំផុតចេញក្រៅ រួចសម្រួល។",
                     rationale_km="ភាគយកនិងភាគបែងខិតជិតអនន្តដំណាលគ្នា ត្រូវទាញកត្តាដឺក្រេខ្ពស់បំផុតចេញក្រៅ។",
                     rationale_en="Numerator and denominator approach infinity, requiring highest-degree term factoring.",
-                    rule_formula=r"\left[\frac{\infty}{\infty}\right]",
+                    rule_formula=None,
                 )
             )
             order += 1
@@ -248,11 +261,13 @@ class LimitStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="ជំនួសតម្លៃផ្ទាល់ (អនុគមន៍ជាប់)",
+                    title_en="Direct Substitution (Continuous Function)",
                     description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ដោយផ្ទាល់ (អនុគមន៍ជាប់ត្រង់ ${var} = {pt_str}$)៖",
                     description_en=f"Direct substitution of ${var} = {pt_str}$ (function is continuous at ${var} = {pt_str}$):",
                     expression=f"f({pt_str}) = {latex(direct_val)}",
-                    title_km="ជំនួសតម្លៃផ្ទាល់ (អនុគមន៍ជាប់)",
-                    title_en="Direct Substitution (Continuous Function)",
+                    teacher_note=f"អនុគមន៍នេះជាប់ និងគ្មានភាគបែងស្មើសូន្យត្រង់ ${var} = {pt_str}$ ទេ ដូច្នេះអាចជំនួសតម្លៃចូលដោយផ្ទាល់បានភ្លាមៗ៖",
+                    details=[f"f({pt_str}) = {latex(direct_val)}"],
                     rationale_km=f"អនុគមន៍កំណត់ និងជាប់ត្រង់ {var} = {pt_str} ដូច្នេះតម្លៃលីមីតស្មើនឹងតម្លៃអនុគមន៍ f({pt_str})។",
                     rationale_en=f"The function is defined and continuous at {var} = {pt_str}, so the limit equals f({pt_str}).",
                     rule_formula=r"\lim_{x \to c} f(x) = f(c)",
@@ -277,11 +292,13 @@ class LimitStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="ពិនិត្យការជំនួសផ្ទាល់ (ភាគបែងស្មើសូន្យ)",
+                    title_en="Direct Substitution (Zero Denominator)",
                     description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ដោយផ្ទាល់ នាំឱ្យភាគបែងស្មើសូន្យ ($den = 0$)៖",
                     description_en=f"Direct substitution of ${var} = {pt_str}$ results in zero denominator ($den = 0$):",
                     expression=f"\\frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} \\xrightarrow{{{var} \\to {pt_str}}} \\frac{{{num_val_str}}}{{0}}",
-                    title_km="ពិនិត្យការជំនួសផ្ទាល់ (ភាគបែងស្មើសូន្យ)",
-                    title_en="Direct Substitution (Zero Denominator)",
+                    teacher_note=f"ពេលជំនួស ${var} = {pt_str}$ ឃើញថាភាគបែងស្មើសូន្យ ខណៈភាគយកមិនស្មើសូន្យ (ទម្រង់ $k/0$) នាំឱ្យលីមីតខិតជិតអនន្ត ($\\pm\\infty$)។",
+                    important_note=r"ចំណាំ៖ ទម្រង់ $\frac{k}{0}$ ($k \neq 0$) មិនមែនជារាងមិនកំណត់ទេ តែជាលីមីតអនន្ត។",
                     rationale_km=rationale_km,
                     rationale_en=rationale_en,
                     rule_formula=r"\frac{k}{0} \to \infty",
@@ -310,11 +327,13 @@ class LimitStepGenerator(StepGenerator):
                 steps.append(
                     SolutionStep(
                         order=order,
+                        title_km="អនុវត្តវិធាន L'Hôpital (ឬរូបមន្តត្រីកោណមាត្រ)",
+                        title_en="Apply L'Hôpital's Rule",
                         description_km="ដោយសារលីមីតនៃអនុគមន៍ត្រីកោណមាត្រមានរាងមិនកំណត់ $\\frac{0}{0}$ អនុវត្តវិធាន L'Hôpital (ឬរូបមន្តត្រីកោណមាត្រ) ដោយគណនាដេរីវេភាគយក និងភាគបែង៖",
                         description_en="Since the limit has indeterminate form 0/0, apply L'Hôpital's rule by differentiating numerator and denominator:",
                         expression=rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} = \lim_{{{var} \to {pt_str}}} \frac{{{deriv_num_str}}}{{{deriv_den_str}}}",
-                        title_km="អនុវត្តវិធាន L'Hôpital",
-                        title_en="Apply L'Hôpital's Rule",
+                        teacher_note="ដោយសារលីមីតមានរាងមិនកំណត់ $\\frac{0}{0}$ អាចអនុវត្តវិធាន L'Hôpital ដោយគណនាដេរីវេភាគយក និងភាគបែងដោយឡែកពីគ្នា៖",
+                        important_note=r"ចំណាំ៖ វិធាន L'Hôpital ចែងថា $\lim \frac{u}{v} = \lim \frac{u'}{v'}$ ប្រើបានតែចំពោះរាង $\frac{0}{0}$ ឬ $\frac{\infty}{\infty}$ ប៉ុណ្ណោះ!",
                         rationale_km="វិធាន L'Hôpital អនុញ្ញាតឱ្យដោះស្រាយលីមីតរាង [0/0] ដោយយកដេរីវេនៃភាគយកចែកនឹងដេរីវេនៃភាគបែង៖ lim u/v = lim u'/v'។",
                         rationale_en="L'Hôpital's rule resolves indeterminate [0/0] limits by evaluating the limit of quotient of derivatives.",
                         rule_formula=r"\lim_{x \to c} \frac{u(x)}{v(x)} = \lim_{x \to c} \frac{u'(x)}{v'(x)}",
@@ -327,54 +346,194 @@ class LimitStepGenerator(StepGenerator):
                     steps.append(
                         SolutionStep(
                             order=order,
+                            title_km="ជំនួសតម្លៃគណនាលីមីត",
+                            title_en="Substitute and Compute Limit",
                             description_km=f"ជំនួសតម្លៃ ${var} = {pt_str}$ ចូលក្នុងកន្សោមដេរីវេ៖",
                             description_en=f"Substitute ${var} = {pt_str}$ into the differentiated quotient:",
                             expression=rf"\frac{{{deriv_num_str}}}{{{deriv_den_str}}} \xrightarrow{{{var} = {pt_str}}} \frac{{{latex(dnum_val)}}}{{{latex(dden_val)}}} = {latex(eval_quotient)}",
-                            title_km="ជំនួសតម្លៃគណនាលីមីត",
-                            title_en="Substitute and Compute Limit",
+                            teacher_note=f"ក្រោយពីលុបរាងមិនកំណត់រួច ភាគបែងលែងសូន្យហើយ អាចជំនួស ${var} = {pt_str}$ ចូលដើម្បីទាញរកចម្លើយ៖",
+                            details=[],
                             rationale_km="ក្រោយពីលុបរាងមិនកំណត់ ភាគបែងមិនសូន្យទៀតទេ ដូច្នេះអាចជំនួសតម្លៃផ្ទាល់បាន។",
                             rationale_en="After differentiating, the denominator is non-zero, allowing direct evaluation.",
                         )
                     )
                     order += 1
             elif has_radical:
-                # Radical conjugate method
-                canceled_f = factor(f)
-                if canceled_f != f:
-                    reduced_expr = canceled_f
-                steps.append(
-                    SolutionStep(
-                        order=order,
-                        description_km=f"គុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ រួចសម្រួលកត្តាសូន្យ $({var} - {pt_str})$៖",
-                        description_en=f"Multiply numerator and denominator by conjugate, then cancel common factor $({var} - {pt_str})$:",
-                        expression=f"{latex(f)} = {latex(reduced_expr or f)} \\quad (\\text{{ចំពោះ }} {var} \\neq {pt_str})",
-                        title_km="គុណកន្សោមឆ្លាស់នៃរ៉ាឌីកាល់",
-                        title_en="Multiply by Radical Conjugate",
-                        rationale_km="ប្រើរូបមន្តកន្សោមឆ្លាស់ (√A - B)(√A + B) = A - B² ដើម្បីបំបាត់រ៉ាឌីកាល់ និងសម្រួលកត្តាសូន្យ។",
-                        rationale_en="Use radical conjugate identity (√A - B)(√A + B) = A - B² to eliminate roots and cancel zero factor.",
-                        rule_formula=r"(\sqrt{A} - B)(\sqrt{A} + B) = A - B^2",
+                # Robust algebraic radical conjugate method
+                terms = num.as_ordered_terms()
+                conj = None
+                num_expanded = None
+                if len(terms) == 2:
+                    t1, t2 = terms[0], terms[1]
+                    for candidate in [t1 - t2, -t1 + t2, t1 + t2, -(t1 + t2)]:
+                        test_exp = expand(num * candidate)
+                        if not any(isinstance(a, sympy.Pow) and a.exp.is_Rational and a.exp.q != 1 for a in test_exp.atoms(sympy.Pow)):
+                            conj = candidate
+                            num_expanded = test_exp
+                            if not str(candidate).startswith("-"):
+                                break
+                if conj is None:
+                    sqrt_terms = [t for t in num.as_ordered_terms() if any(isinstance(a, sympy.Pow) and a.exp.is_Rational and a.exp.q != 1 for a in t.atoms(sympy.Pow))]
+                    if sqrt_terms:
+                        other_terms = num - sum(sqrt_terms)
+                        for candidate in [sum(sqrt_terms) - other_terms, other_terms - sum(sqrt_terms), other_terms + sum(sqrt_terms)]:
+                            test_exp = expand(num * candidate)
+                            if not any(isinstance(a, sympy.Pow) and a.exp.is_Rational and a.exp.q != 1 for a in test_exp.atoms(sympy.Pow)):
+                                conj = candidate
+                                num_expanded = test_exp
+                                break
+
+                if conj is not None and num_expanded is not None:
+                    num_factored = factor(num_expanded)
+                    num_canceled = cancel(num_expanded / den)
+                    reduced_expr = num_canceled / conj
+
+                    # Step A: Multiply numerator and denominator by conjugate
+                    mult_conj_expr = (
+                        rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}}"
+                        "\n"
+                        rf"= \lim_{{{var} \to {pt_str}}} \frac{{\left({latex(num)}\right)\left({latex(conj)}\right)}}{{\left({latex(den)}\right)\left({latex(conj)}\right)}}"
+                        "\n"
+                        rf"= \lim_{{{var} \to {pt_str}}} \frac{{{latex(num_expanded)}}}{{\left({latex(den)}\right)\left({latex(conj)}\right)}}"
                     )
-                )
-                order += 1
+                    steps.append(
+                        SolutionStep(
+                            order=order,
+                            title_km="គុណកន្សោមឆ្លាស់នៃរ៉ាឌីកាល់",
+                            title_en="Multiply by Radical Conjugate",
+                            description_km=f"គុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ $({latex(conj)})$ ដើម្បីបំបាត់រ៉ាឌីកាល់៖",
+                            description_en=f"Multiply numerator and denominator by conjugate $({latex(conj)})$ to eliminate radicals:",
+                            expression=mult_conj_expr,
+                            teacher_note=f"ដោយសារកន្សោមមានរ៉ាឌីកាល់ (ឫសការ៉េ) នាំឱ្យរាង $\\frac{{0}}{{0}}$ ត្រូវគុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ $({latex(conj)})$ ដោយប្រើរូបមន្ត $(\\sqrt{{A}} - B)(\\sqrt{{A}} + B) = A - B^2$៖",
+                            details=[
+                                f"គុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ $({latex(conj)})$",
+                                r"ពន្លាតផលគុណភាគយកតាមរូបមន្ត $(\sqrt{A} - B)(\sqrt{A} + B) = A - B^2$",
+                            ],
+                            rule_formula=r"(\sqrt{A} - B)(\sqrt{A} + B) = A - B^2",
+                            rationale_km="ប្រើរូបមន្តកន្សោមឆ្លាស់ (√A - B)(√A + B) = A - B² ដើម្បីបំបាត់រ៉ាឌីកាល់ និងសម្រួលកត្តាសូន្យ។",
+                            rationale_en="Use radical conjugate identity (√A - B)(√A + B) = A - B² to eliminate roots and cancel zero factor.",
+                        )
+                    )
+                    order += 1
+
+                    # Step B: Factor numerator and cancel common vanishing factor
+                    cancel_step_expr = (
+                        rf"\lim_{{{var} \to {pt_str}}} \frac{{{latex(num_factored)}}}{{\left({latex(den)}\right)\left({latex(conj)}\right)}}"
+                        "\n"
+                        rf"= \lim_{{{var} \to {pt_str}}} \left({latex(reduced_expr)}\right)"
+                    )
+                    steps.append(
+                        SolutionStep(
+                            order=order,
+                            title_km="សម្រួលកត្តាសូន្យ (Cancel Common Factor)",
+                            title_en="Cancel Common Vanishing Factor",
+                            description_km=f"ដាក់ភាគយកជាផលគុណកត្តា និងសម្រួលកត្តាសូន្យ $({var} - {pt_str})$ ចោល៖",
+                            description_en=f"Factor numerator and cancel vanishing factor $({var} - {pt_str})$:",
+                            expression=cancel_step_expr,
+                            teacher_note=f"ដោយសារ ${var} \\to {pt_str}$ (${var} \\neq {pt_str}$ នាំឱ្យ ${var} - {pt_str} \\neq 0$) អាចសម្រួលកត្តាសូន្យ $({var} - {pt_str})$ ចេញពីភាគយក និងភាគបែងបាន៖",
+                            details=[
+                                f"សម្រួលកត្តាសូន្យ ({var} - {pt_str}) ចេញ",
+                            ],
+                            rationale_km=f"ដោយសារ {var} ខិតជិត {pt_str} ({var} \\neq {pt_str}) កត្តា ({var} - {pt_str}) មិនស្មើសូន្យ អាចសម្រួលបាន។",
+                            rationale_en=f"Since {var} approaches {pt_str} ({var} != {pt_str}), the factor ({var} - {pt_str}) is nonzero and cancels out.",
+                        )
+                    )
+                    order += 1
+                else:
+                    # Fallback if conjugate pattern doesn't match
+                    canceled_f = factor(f)
+                    if canceled_f != f:
+                        reduced_expr = canceled_f
+                    steps.append(
+                        SolutionStep(
+                            order=order,
+                            title_km="គុណកន្សោមឆ្លាស់នៃរ៉ាឌីកាល់",
+                            title_en="Multiply by Radical Conjugate",
+                            description_km=f"គុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ រួចសម្រួលកត្តាសូន្យ $({var} - {pt_str})$៖",
+                            description_en=f"Multiply numerator and denominator by conjugate, then cancel common factor $({var} - {pt_str})$:",
+                            expression=rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}} = \lim_{{{var} \to {pt_str}}} \left({latex(reduced_expr or f)}\right)",
+                            teacher_note=f"ដោយសារកន្សោមមានរ៉ាឌីកាល់ (ឫសការ៉េ) នាំឱ្យរាង $\\frac{{0}}{{0}}$ ត្រូវគុណភាគយក និងភាគបែងនឹងកន្សោមឆ្លាស់ (Conjugate) ដើម្បីបំបាត់រ៉ាឌីកាល់៖",
+                            rule_formula=r"(\sqrt{A} - B)(\sqrt{A} + B) = A - B^2",
+                            rationale_km="ប្រើរូបមន្តកន្សោមឆ្លាស់ (√A - B)(√A + B) = A - B² ដើម្បីបំបាត់រ៉ាឌីកាល់។",
+                            rationale_en="Use radical conjugate identity to eliminate roots.",
+                        )
+                    )
+                    order += 1
             else:
-                # Algebraic rational function
+                # Algebraic rational function: Pedagogical Factoring then Simplifying
                 factored_num = factor(num)
                 factored_den = factor(den)
                 canceled_f = factor(f)
 
                 if canceled_f != f:
-                    reduced_expr = canceled_f
+                    # Detect difference of squares a^2 - b^2
+                    is_diff_squares = False
+                    diff_squares_note = ""
+                    rule_fact = r"\frac{(x - c)P(x)}{(x - c)Q(x)} = \frac{P(x)}{Q(x)}"
+
+                    if isinstance(num, sympy.Add) and len(num.args) == 2:
+                        for arg in num.args:
+                            if arg.is_number and arg < 0:
+                                pos_k = -arg
+                                sqrt_k = sympy.sqrt(pos_k)
+                                if sqrt_k.is_integer:
+                                    is_diff_squares = True
+                                    rule_fact = r"a^2 - b^2 = (a - b)(a + b)"
+                                    diff_squares_note = (
+                                        f"សង្កេតឃើញ ${latex(num)}$ ចូលរូបមន្តផលដកពីរការ៉េ៖\n"
+                                        r"$a^2 - b^2 = (a - b)(a + b)$" + "\n"
+                                        f"ដូចនេះ៖ ${latex(num)} = {latex(var)}^2 - {int(sqrt_k)}^2 = {latex(factored_num)}$"
+                                    )
+
+                    if not diff_squares_note:
+                        diff_squares_note = (
+                            f"ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា ដើម្បីទាញកត្តាសូន្យ $({var} - {pt_str})$ ចេញ៖\n"
+                            f"${latex(num)} = {latex(factored_num)}$\n"
+                            f"${latex(den)} = {latex(factored_den)}$"
+                        )
+
+                    # Step 2: Factoring
+                    factoring_expr = (
+                        rf"\lim_{{{var} \to {pt_str}}} \frac{{{_clean_latex_expr(num)}}}{{{_clean_latex_expr(den)}}}"
+                        "\n"
+                        rf"= \lim_{{{var} \to {pt_str}}} \frac{{{latex(factored_num)}}}{{{latex(factored_den)}}}"
+                    )
                     steps.append(
                         SolutionStep(
                             order=order,
-                            description_km=f"ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា រួចសម្រួលកត្តារួម $({var} - {pt_str})$៖",
-                            description_en=f"Factor numerator and denominator, then cancel the common factor $({var} - {pt_str})$:",
-                            expression=f"\\frac{{{latex(factored_num)}}}{{{latex(factored_den)}}} = {latex(canceled_f)} \\quad (\\text{{ចំពោះ }} {var} \\neq {pt_str})",
-                            title_km="ដាក់ជាផលគុណកត្តា និងសម្រួលកត្តាសូន្យ",
-                            title_en="Factor and Cancel Common Zero Factor",
+                            title_km="ប្រើប្រាស់កន្សោមសមមូល ឬដាក់កត្តា (Factoring)",
+                            title_en="Factor Expression",
+                            description_km="ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា៖",
+                            description_en="Factor numerator and denominator:",
+                            expression=factoring_expr,
+                            teacher_note=diff_squares_note,
+                            details=["ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា"],
+                            rule_formula=rule_fact,
                             rationale_km=f"បំបែកពហុធាភាគយក និងភាគបែង ដើម្បីសម្រួលកត្តាសូន្យ ({var} - {pt_str}) ដែលនាំឱ្យមានរាង 0/0។",
                             rationale_en=f"Factor numerator and denominator polynomials to cancel vanishing factor ({var} - {pt_str}).",
-                            rule_formula=r"\frac{(x - c)P(x)}{(x - c)Q(x)} = \frac{P(x)}{Q(x)}",
+                        )
+                    )
+                    order += 1
+
+                    # Step 3: Simplifying / Canceling
+                    reduced_expr = canceled_f
+                    cancel_expr = (
+                        rf"\lim_{{{var} \to {pt_str}}} \frac{{{latex(factored_num)}}}{{{latex(factored_den)}}}"
+                        "\n"
+                        rf"= \lim_{{{var} \to {pt_str}}} \left({latex(reduced_expr)}\right)"
+                    )
+                    steps.append(
+                        SolutionStep(
+                            order=order,
+                            title_km="សម្រួលកត្តារួម (Simplifying)",
+                            title_en="Cancel Common Factor",
+                            description_km=f"សម្រួលកត្តារួម $({var} - {pt_str})$ ចោល៖",
+                            description_en=f"Cancel common factor $({var} - {pt_str})$:",
+                            expression=cancel_expr,
+                            teacher_note=f"ដោយសារ ${var} \\to {pt_str}$ (${var} \\neq {pt_str}$ នាំឱ្យ ${var} - {pt_str} \\neq 0$) អាចសម្រួលកត្តា $({var} - {pt_str})$ ចោលបាន៖",
+                            details=[f"សម្រួលកត្តាសូន្យ ({var} - {pt_str}) ចេញ"],
+                            rationale_km=f"ដោយសារ {var} ខិតជិត {pt_str} ({var} \\neq {pt_str}) កត្តា ({var} - {pt_str}) មិនស្មើសូន្យ អាចសម្រួលបាន។",
+                            rationale_en=f"Since {var} approaches {pt_str} ({var} != {pt_str}), the factor ({var} - {pt_str}) is nonzero and cancels out.",
                         )
                     )
                     order += 1
@@ -382,11 +541,13 @@ class LimitStepGenerator(StepGenerator):
                     steps.append(
                         SolutionStep(
                             order=order,
+                            title_km="ដាក់ភាគយកនិងភាគបែងជាផលគុណកត្តា",
+                            title_en="Factor Numerator & Denominator",
                             description_km="ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា៖",
                             description_en="Factor numerator and denominator:",
                             expression=f"\\frac{{{latex(factored_num)}}}{{{latex(factored_den)}}}",
-                            title_km="ដាក់ភាគយកនិងភាគបែងជាផលគុណកត្តា",
-                            title_en="Factor Numerator & Denominator",
+                            teacher_note="ដាក់ភាគយក និងភាគបែងជាផលគុណកត្តា ដើម្បីពិនិត្យមើលកត្តារួម៖",
+                            details=[],
                             rationale_km="បំបែកពហុធាដើម្បីស្រង់កត្តារួមចេញ។",
                             rationale_en="Factor polynomials to extract common terms.",
                         )
@@ -406,14 +567,28 @@ class LimitStepGenerator(StepGenerator):
 
         eval_expr_latex = _clean_latex_expr(reduced_expr) if reduced_expr is not None else _clean_latex_expr(f)
 
+        # Build clean final substitution expression
+        final_calc_step = ""
+        if reduced_expr is not None:
+            try:
+                sub_sym = reduced_expr.subs(var, Symbol(str(pt_str)))
+                if latex(sub_sym) != latex(final_val):
+                    final_calc_step = f"= {latex(sub_sym)} "
+            except Exception:
+                pass
+
+        final_expr_str = f"\\lim_{{{var} \\to {pt_str}}} \\left({eval_expr_latex}\\right)\n{final_calc_step}= {latex(final_val)}"
+
         steps.append(
             SolutionStep(
                 order=order,
-                description_km=f"គណនាតម្លៃលីមីតចុងក្រោយនៅពេល ${var} \\to {pt_str}$៖",
-                description_en=f"Evaluate the final limit as ${var} \\to {pt_str}$:",
-                expression=f"\\lim_{{{var} \\to {pt_str}}} \\left({eval_expr_latex}\\right) = {latex(final_val)}",
                 title_km="គណនាតម្លៃលីមីតចុងក្រោយ",
                 title_en="Compute Final Limit Value",
+                description_km=f"គណនាតម្លៃលីមីតចុងក្រោយនៅពេល ${var} \\to {pt_str}$៖",
+                description_en=f"Evaluate the final limit as ${var} \\to {pt_str}$:",
+                expression=final_expr_str,
+                teacher_note=f"កន្សោមលែងមានភាគបែងសូន្យ អាចជំនួស ${var} = {pt_str}$ ចូលដោយផ្ទាល់៖",
+                details=[f"ជំនួសតម្លៃ ${var} = {pt_str}$ ចូលកន្សោមសម្រួលរួច"],
                 rationale_km="ជំនួសតម្លៃខិតជិតចូលក្នុងកន្សោមសម្រួលរួច ដើម្បីទទួលបានតម្លៃលីមីតពិតប្រាកដ។",
                 rationale_en="Substitute approach value into simplified continuous expression to evaluate exact limit value.",
             )

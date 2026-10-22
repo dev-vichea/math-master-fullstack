@@ -198,6 +198,7 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"យើងមានអនុគមន៍ ${func_name} = {latex(func_expr)}$ និងអថេរដេរីវេ ${var}$។",
                 description_en=f"Given the function ${func_name} = {latex(func_expr)}$ with respect to ${var}$.",
                 expression=f"{func_name} = {latex(func_expr)}",
+                teacher_note=f"យើងត្រូវគណនាដេរីវេនៃអនុគមន៍ដែលមានទម្រង់រ៉ាឌីកាល់ $\\sqrt{{u}}$ ចំពោះអថេរ ${var}$។",
             )
         )
 
@@ -216,6 +217,8 @@ class DerivativeStepGenerator(StepGenerator):
                     f"$(\\sqrt{{u}})' = \\frac{{u'}}{{2\\sqrt{{u}}}}$ where $u = {latex(radicand)}$."
                 ),
                 expression=f"{deriv_name} = \\frac{{({latex(radicand)})'}}{{2\\sqrt{{{latex(radicand)}}}}}",
+                teacher_note=f"អនុវត្តរូបមន្តដេរីវេនៃរ៉ាឌីកាល់បណ្តាក់ $(\\sqrt{{u}})' = \\frac{{u'}}{{2\\sqrt{{u}}}}$ ដោយយក $u = {latex(radicand)}$។",
+                rule_formula=r"(\sqrt{u})' = \frac{u'}{2\sqrt{u}}",
             )
         )
 
@@ -228,6 +231,8 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"គណនាដេរីវេនៃតួខាងក្នុង $({latex(radicand)})' = {latex(u_prime)}$។",
                 description_en=f"Differentiate inner component: $({latex(radicand)})' = {latex(u_prime)}$.",
                 expression=f"{deriv_name} = \\frac{{{latex(u_prime)}}}{{2\\sqrt{{{latex(radicand)}}}}}",
+                teacher_note=f"គណនាដេរីវេនៃតួខាងក្នុងរ៉ាឌីកាល់ $({latex(radicand)})' = {latex(u_prime)}$។",
+                details=[f"({latex(radicand)})' = {latex(u_prime)}"],
             )
         )
 
@@ -240,6 +245,7 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km="សម្រួលកត្តារួមរវាងភាគយក និងភាគបែង។",
                 description_en="Cancel common factors in numerator and denominator.",
                 expression=f"{deriv_name} = {latex(final_ans)}",
+                teacher_note="សម្រួលកត្តារួម (ដូចជាមេគុណ 2) ដើម្បីឱ្យកន្សោមនៅសល់ទម្រង់សាមញ្ញបំផុត។",
             )
         )
 
@@ -252,6 +258,7 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"ដូចនេះ ${deriv_name} = {latex(final_ans)}$",
                 description_en=f"Therefore, ${deriv_name} = {latex(final_ans)}$",
                 expression=f"{deriv_name} = {latex(final_ans)}",
+                teacher_note="យើងទទួលបានចម្លើយដេរីវេត្រឹមត្រូវ 100% ហើយ!",
             )
         )
 
@@ -791,6 +798,8 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"យើងមានអនុគមន៍ ${func_name} = {latex(func_expr)}$ និងអថេរដេរីវេ ${var}$។",
                 description_en=f"Given the function ${func_name} = {latex(func_expr)}$ with variable ${var}$.",
                 expression=f"{func_name} = {latex(func_expr)}",
+                teacher_note=f"ដើម្បីគណនាដេរីវេនៃអនុគមន៍ ${func_name} = {latex(func_expr)}$ ត្រូវសង្កេតមើលទម្រង់របស់អនុគមន៍ ថាតើវាជាពហុធា ស្វ័យគុណ ឬអនុគមន៍លោការីត។",
+                details=[f"អនុគមន៍ដើម៖ {func_name} = {latex(func_expr)}"],
             )
         )
 
@@ -802,6 +811,7 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"គេបាន ${deriv_name} = ({latex(func_expr)})'$ ដោយអនុវត្តវិធានដេរីវេគ្រឹះ។",
                 description_en=f"Taking derivative: ${deriv_name} = ({latex(func_expr)})'$ applying basic rules.",
                 expression=f"{deriv_name} = ({latex(func_expr)})'",
+                teacher_note=f"បំពាក់សញ្ញាដេរីវេលើអនុគមន៍ទាំងមូល៖ ${deriv_name} = ({latex(func_expr)})'$។",
             )
         )
 
@@ -816,6 +826,7 @@ class DerivativeStepGenerator(StepGenerator):
             if is_log
             else "Apply power rule $(x^n)' = n x^{n-1}$ and sum/difference rules across terms."
         )
+        rule_f = r"(\ln x)' = \frac{1}{x}" if is_log else r"(x^n)' = n x^{n-1}"
 
         steps.append(
             SolutionStep(
@@ -825,6 +836,10 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=desc_step3_km,
                 description_en=desc_step3_en,
                 expression=f"{deriv_name} = {_to_latex(final_ans)}",
+                teacher_note="គណនាដេរីវេនៃតួនីមួយៗដោយឡែកពីគ្នា តាមរូបមន្តដេរីវេនៃផលបូក $(u + v)' = u' + v'$៖",
+                rule_formula=rule_f,
+                important_note="ចំណាំ៖ ដេរីវេនៃចំនួនថេរស្មើសូន្យ $(c)' = 0$ ជានិច្ច!",
+                details=[f"អនុវត្តរូបមន្ត {rule_f}"],
             )
         )
 
@@ -836,6 +851,8 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km="សម្រួលកន្សោម និងរៀបតាមលំដាប់ចុះ។",
                 description_en="Simplify expression and arrange terms in standard order.",
                 expression=f"{deriv_name} = {_to_latex(final_ans)}",
+                teacher_note="ពន្លាត និងសម្រួលកន្សោមដើម្បីទទួលបានលទ្ធផលដ៏សាមញ្ញបំផុត៖",
+                details=[f"សម្រួលលទ្ធផលចុងក្រោយ៖ {_to_latex(final_ans)}"],
             )
         )
 
@@ -847,6 +864,7 @@ class DerivativeStepGenerator(StepGenerator):
                 description_km=f"ដូចនេះ ${deriv_name} = {_to_latex(final_ans)}$",
                 description_en=f"Therefore, ${deriv_name} = {_to_latex(final_ans)}$",
                 expression=f"{deriv_name} = {_to_latex(final_ans)}",
+                teacher_note=f"យើងទទួលបានចម្លើយដេរីវេចុងក្រោយគឺ ${deriv_name} = {_to_latex(final_ans)}$។",
             )
         )
 

@@ -433,12 +433,18 @@ class DifferentialSolver(BaseSolver):
                     )
                 ]
 
+        concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ចម្លើយនៃសមីការឌីផេរ៉ង់ស្យែលគឺ {ans_str}។"
+        concl_en = f"Conclusion: Therefore, the solution to the differential equation is {ans_str}."
+
         return SolveResult(
             answer=ans_str,
             variable=str(var),
             is_verified=is_verified,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "problem_type": problem_type,
                 "independent_var": str(var),

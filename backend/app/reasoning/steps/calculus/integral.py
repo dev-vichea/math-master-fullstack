@@ -526,6 +526,7 @@ class IntegralStepGenerator(StepGenerator):
                 title_en="Identify Given Integral",
                 rationale_km=f"កត់សម្គាល់អនុគមន៍ f({var}) = {_to_latex(integrand)} និងអថេរអាំងតេក្រាល d{var}។",
                 rationale_en=f"Identify integrand f({var}) = {_to_latex(integrand)} with differential d{var}.",
+                teacher_note=f"យើងត្រូវគណនាអាំងតេក្រាលនៃអនុគមន៍ $f({var}) = {_to_latex(integrand)}$ ចំពោះអថេរ ${var}$។",
             )
         )
 
@@ -561,6 +562,7 @@ class IntegralStepGenerator(StepGenerator):
                 rationale_km="កំណត់រូបមន្តគរុកោសល្យត្រឹមត្រូវសម្រាប់អនុគមន៍ក្រោមអាំងតេក្រាល។",
                 rationale_en="Identify appropriate curriculum integration formula.",
                 rule_formula=rule_formula,
+                teacher_note="អនុវត្តរូបមន្តអាំងតេក្រាលគ្រឹះចំពោះតួនីមួយៗ។",
             )
         )
 
@@ -587,6 +589,7 @@ class IntegralStepGenerator(StepGenerator):
                     title_en="Simplify or Expand Integrand",
                     rationale_km="ធ្វើការសម្រួលប្រភាគ ឬពន្លាតកន្សោមស្វ័យគុណ ដើម្បីងាយស្រួលអនុវត្តរូបមន្តអាំងតេក្រាលតាមតួនិមួយៗ។",
                     rationale_en="Simplify fraction or expand power to facilitate term-by-term integration.",
+                    teacher_note="សម្រួល ឬពន្លាតកន្សោមឱ្យទៅជាផលបូកនៃតួសាមញ្ញៗដើម្បីងាយស្រួលធ្វើអាំងតេក្រាល។",
                 )
             )
             integrand_for_terms = integrand_eval
@@ -611,6 +614,8 @@ class IntegralStepGenerator(StepGenerator):
                     title_en="Integrate Term by Term",
                     rationale_km="អាំងតេក្រាលនៃផលបូក ស្មើនឹងផលបូកនៃអាំងតេក្រាលតួនិមួយៗ។",
                     rationale_en="The integral of a sum equals the sum of integrals.",
+                    teacher_note="គណនាព្រីមីទីវនៃតួនីមួយៗដោយឡែកពីគ្នា រួចផ្គុំចូលគ្នាវិញ។",
+                    details=[f"∫ ({_to_latex(t)}) d{var} = {_to_latex(sympy.integrate(t, var))}" for t in integrand_for_terms.args],
                 )
             )
 
@@ -625,6 +630,8 @@ class IntegralStepGenerator(StepGenerator):
                 title_en="Conclude Final Antiderivative",
                 rationale_km="ទទួលបានសំណុំនៃគ្រប់ព្រីមីទីវនៃអនុគមន៍ ដោយបូកចំនួនថេរ C (C ∈ ℝ)។",
                 rationale_en="Obtain full family of antiderivatives with constant C.",
+                teacher_note="កុំភ្លេចថែមចំនួនថេរ + C (C ∈ ℝ) សម្រាប់អាំងតេក្រាលមិនកំណត់ ព្រោះមានអនុគមន៍ព្រីមីទីវច្រើនរាប់មិនអស់!",
+                important_note="ចំណាំ៖ សម្រាប់អាំងតេក្រាលមិនកំណត់ គឺត្រូវតែសរសេរ + C (ដែល C ជាចំនួនថេរ) ជានិច្ច!",
             )
         )
 

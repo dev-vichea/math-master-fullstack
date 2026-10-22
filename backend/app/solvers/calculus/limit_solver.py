@@ -150,12 +150,18 @@ class LimitSolver(BaseSolver):
             except Exception:
                 is_verified = False
 
+        concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ចម្លើយនៃដែនកំណត់នេះគឺ {ans_str}។"
+        concl_en = f"Conclusion: Therefore, the value of this limit is {ans_str}."
+
         return SolveResult(
             answer=ans_str,
             variable=variable_name,
             is_verified=is_verified,
             steps=steps,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
             metadata={
                 "limit_expression": str(limit_obj.args[0]) if limit_obj.args else None,
                 "limit_point": str(limit_obj.args[2]) if len(limit_obj.args) > 2 else None,

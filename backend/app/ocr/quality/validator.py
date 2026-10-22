@@ -81,7 +81,7 @@ def validate_math_candidate(
     target_math = None
     if exercise_metadata and exercise_metadata.get("primary_expression"):
         target_math = exercise_metadata["primary_expression"]
-    elif any(k in raw_ocr_text for k in ("លំហាត់", "Exercise", "Exercise:", "ក.", "ក)", "a)", "1.")):
+    elif any(k in raw_ocr_text for k in ("លំហាត់", "Exercise", "Exercise:", "ក.", "ក)", "ខ.", "ខ)", "គ.", "គ)", "ឃ.", "ឃ)", "ង.", "ង)", "a)", "1.")):
         try:
             from app.parser.exercise_parser.exercise_parser import parse_exercise
             parsed_ex = parse_exercise(raw_ocr_text)
@@ -105,12 +105,32 @@ def validate_math_candidate(
         except Exception:
             pass
 
+    if target_math:
+        target_math, _, _, _ = safe_normalize_math(target_math)
+        if exercise_metadata:
+            exercise_metadata["primary_expression"] = target_math
+
     suspicious_tokens: list[str] = []
     validation_issues: list[str] = list(norm_warnings)
 
-    if prefix:
+    is_label_prefix = bool(
+        prefix and (
+            re.match(r"^(\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)|[a-zA-Z0-9\u1780-\u17a2]{1,2}[\.\)៖:,])\s*$", prefix)
+            or re.match(r"^(?:\\[a-zA-Z]+\s*\{[^{}]*(?:\{[^{}]*\})*\s*\}\s*[\.\,:]?)\s*$", prefix)
+            or re.match(r"^(?:(?:exercise|ex|problem|no|№)\s*[\.\#:]?\s*\d+[\.\,:]?)\s*$", prefix, re.IGNORECASE)
+            or re.match(r"^(?:\d{1,4}\s*[\.\,:]\s*(?!\d))\s*$", prefix)
+        )
+    )
+    is_condition_suffix = bool(
+        suffix and (
+            any(kw in suffix for kw in ["កំណត់លើ", "លើចន្លោះ", "ចំពោះ", "លក្ខខណ្ឌដើម", "where", "for", r"\in"])
+            or re.match(r"^([,;]?\s*(?:x\s*\\in\s*)?[(\[].+?[)\]]|[,;]?\s*[a-zA-Z]\s*(?:!=|≠|<=|>=|<|>|=)\s*[-+]?\d+)\s*$", suffix)
+            or re.match(r"^(?:[\s,;:.|ฯ\\]+|~\s*[a-zA-Z]?|\\[a-zA-Z]+\s*(?:\{[^{}]*\})?)+$", suffix)
+        )
+    )
+    if prefix and not is_label_prefix:
         suspicious_tokens.append(f"prefix:{prefix}")
-    if suffix:
+    if suffix and not is_condition_suffix:
         suspicious_tokens.append(f"suffix:{suffix}")
 
     # 2. Check for known OCR artifact tokens in raw and normalized text
@@ -120,13 +140,24 @@ def validate_math_candidate(
             suspicious_tokens.extend(matches)
             validation_issues.append(f"Contains suspicious OCR token(s): {matches}")
 
+    # Clean dangling outer braces left over from OCR prefix/suffix detachment before validation
+    math_to_check = target_math or norm_text
+    while math_to_check.startswith("}") and math_to_check.count("}") > math_to_check.count("{"):
+        math_to_check = math_to_check[1:].strip()
+    while math_to_check.endswith("}") and math_to_check.count("}") > math_to_check.count("{"):
+        math_to_check = math_to_check[:-1].strip()
+    while math_to_check.startswith("{") and math_to_check.count("{") > math_to_check.count("}"):
+        math_to_check = math_to_check[1:].strip()
+    while math_to_check.endswith("{") and math_to_check.count("{") > math_to_check.count("}"):
+        math_to_check = math_to_check[:-1].strip()
+
     # 3. Delimiter balance check
-    balanced, delim_issues = check_delimiter_balance(target_math or norm_text)
+    balanced, delim_issues = check_delimiter_balance(math_to_check)
     if not balanced:
         validation_issues.extend(delim_issues)
 
     # 4. Mathematical structure check
-    eval_text = target_math or norm_text
+    eval_text = math_to_check
     has_letters = bool(re.search(r"[a-zA-Z]", eval_text))
     has_digits = bool(re.search(r"\d", eval_text))
     has_operators = any(c in eval_text for c in "=+-*/\\^")
@@ -136,7 +167,8 @@ def validate_math_candidate(
     # 5. SymPy parseability test
     is_parseable = False
     problem_type: str | None = None
-    math_to_parse = target_math or norm_text
+    math_to_parse = math_to_check
+
     if balanced and math_to_parse:
         try:
             parsed = parse_math_text(math_to_parse)
@@ -146,10 +178,18 @@ def validate_math_candidate(
             validation_issues.append(f"SymPy parse error: {str(exc)}")
             is_parseable = False
 
+    # Filter out harmless info logs (like detached clean item labels and conditions) from blocking VERIFIED status
+    critical_issues = [
+        issue for issue in validation_issues
+        if not (issue.startswith("Detached non-math prefix") and is_label_prefix)
+        and not (issue.startswith("Trimmed trailing") and is_condition_suffix)
+    ]
+
+
     # 6. Determine explicit status
     if not is_parseable or not balanced or not math_to_parse:
         status = CandidateStatus.INVALID
-    elif suspicious_tokens or confidence < 0.70 or validation_issues:
+    elif suspicious_tokens or confidence < 0.70 or critical_issues:
         status = CandidateStatus.NEEDS_REVIEW
     else:
         status = CandidateStatus.VERIFIED

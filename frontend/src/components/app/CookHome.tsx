@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { MathLiveField, cleanMinimalMath, type MathLiveFieldRef } from "@/components/mathcook/MathLiveField";
 import { MathView } from "@/components/ui/MathView";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n";
 
 export function ProblemUploader({
   onFile,
@@ -26,6 +27,7 @@ export function ProblemUploader({
 }) {
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t, isKhmer } = useLanguage();
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -76,11 +78,11 @@ export function ProblemUploader({
           <div className="flex items-center gap-2">
             {scanning ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 font-display text-xs font-black text-primary animate-pulse">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Scanning OCR...
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("scanningOcr")}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 font-display text-xs font-black text-emerald-600">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Math Extracted
+                <CheckCircle2 className="h-3.5 w-3.5" /> {t("mathExtracted")}
               </span>
             )}
 
@@ -89,7 +91,7 @@ export function ProblemUploader({
                 type="button"
                 onClick={onRemove}
                 className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-                title="Remove image"
+                title={t("removeImage")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -157,9 +159,11 @@ export function ProblemUploader({
       <span className="grid h-16 w-16 place-items-center rounded-3xl bg-primary text-primary-foreground shadow-soft">
         <Camera className="h-7 w-7" />
       </span>
-      <h3 className="mt-5 text-2xl font-black">Upload a worksheet or problem</h3>
+      <h3 className="mt-5 text-2xl font-black">
+        {isKhmer ? "បញ្ចូលរូបភាព ឬវិញ្ញាសាលំហាត់" : "Upload a worksheet or problem"}
+      </h3>
       <p className="mt-2 text-muted-foreground">
-        {drag ? "Drop it right here!" : "Image, worksheet or PDF · drag & drop"}
+        {drag ? (isKhmer ? "ទម្លាក់រូបភាពត្រង់នេះ!" : "Drop it right here!") : t("dragDropOrClick")}
       </p>
       <input
         ref={fileInputRef}
@@ -173,7 +177,7 @@ export function ProblemUploader({
         onClick={() => fileInputRef.current?.click()}
         className={cn(mcButton(), "mt-6")}
       >
-        Upload Problem
+        {isKhmer ? "ជ្រើសរើសរូបភាព" : "Upload Problem"}
       </button>
     </div>
   );
@@ -184,14 +188,23 @@ export function ProblemInput({
   onChange,
   onSubmit,
   mathFieldRef,
+  subLabel,
+  onSubLabelChange,
+  onSubLabelClear,
+  condition,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (v: string) => void;
   mathFieldRef?: React.RefObject<MathLiveFieldRef | null>;
+  subLabel?: string;
+  onSubLabelChange?: (v: string) => void;
+  onSubLabelClear?: () => void;
+  condition?: string | null;
 }) {
   const fallbackRef = useRef<MathLiveFieldRef>(null);
   const activeRef = mathFieldRef || fallbackRef;
+  const { t } = useLanguage();
 
   return (
     <MathLiveField
@@ -201,7 +214,11 @@ export function ProblemInput({
       onSubmit={() => {
         if (value.trim()) onSubmit(value.trim());
       }}
-      placeholder="Type an equation (e.g. y = 2x^2 + 1)"
+      subLabel={subLabel}
+      onSubLabelChange={onSubLabelChange}
+      onSubLabelClear={onSubLabelClear}
+      condition={condition}
+      placeholder={t("solvePlaceholder")}
     />
   );
 }
@@ -210,6 +227,7 @@ const PHASES = ["Reading problem", "Understanding question", "Identifying topic"
 const WS_PHASES = ["Reading worksheet", "Finding problems", "Understanding instructions", "Classifying topics", "Choosing methods", "Solving", "Explaining"];
 
 export function CookingProgress({ onDone, worksheet }: { onDone: () => void; worksheet?: boolean }) {
+  const { t, isKhmer } = useLanguage();
   const PHASES_ = worksheet ? WS_PHASES : PHASES;
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -220,7 +238,7 @@ export function CookingProgress({ onDone, worksheet }: { onDone: () => void; wor
   return (
     <div className="mx-auto max-w-2xl rounded-[2rem] bg-card p-8 text-center shadow-float md:p-12">
       <div className="mx-auto grid h-20 w-20 animate-floaty place-items-center rounded-3xl bg-primary-soft font-display text-3xl font-black text-primary">∑</div>
-      <h2 className="mt-6 text-3xl font-black md:text-4xl">{worksheet ? "Cooking your worksheet..." : "Cooking your problem..."}</h2>
+      <h2 className="mt-6 text-3xl font-black md:text-4xl">{worksheet ? (isKhmer ? "កំពុងដោះស្រាយវិញ្ញាសា..." : "Cooking your worksheet...") : t("solving")}</h2>
       <ol className="mt-8 space-y-3 text-left">
         {PHASES_.map((p, n) => {
           const done = n < i, active = n === i;
@@ -241,12 +259,13 @@ export function CookingProgress({ onDone, worksheet }: { onDone: () => void; wor
 }
 
 export function RecentCooks() {
+  const { isKhmer } = useLanguage();
   const recent = COOKS.slice(0, 3);
   return (
     <section className="mt-20">
       <div className="mb-6 flex items-end justify-between">
-        <h2 className="text-3xl font-black">Recent cooks</h2>
-        <Link to="/app/my-cooks" className="font-display font-extrabold text-primary hover:underline">See all →</Link>
+        <h2 className="text-3xl font-black">{isKhmer ? "លំហាត់ថ្មីៗ" : "Recent cooks"}</h2>
+        <Link to="/app/my-cooks" className="font-display font-extrabold text-primary hover:underline">{isKhmer ? "មើលទាំងអស់ →" : "See all →"}</Link>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{recent.map((c) => <CookCard key={c.id} cook={c} />)}</div>
     </section>
@@ -255,15 +274,19 @@ export function RecentCooks() {
 
 export function CookHome() {
   const navigate = useNavigate();
+  const { t, isKhmer } = useLanguage();
   const [cooking, setCooking] = useState<{ id: string; worksheet: boolean } | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [instruction, setInstruction] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [mathValue, setMathValue] = useState("");
+  const [subLabel, setSubLabel] = useState<string>("");
   const [ocrStatus, setOcrStatus] = useState<"VERIFIED" | "NEEDS_REVIEW" | "INVALID" | null>(null);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [detectedPrefix, setDetectedPrefix] = useState<string | null>(null);
+  const [detectedCondition, setDetectedCondition] = useState<string | null>(null);
+  const [detectedIntent, setDetectedIntent] = useState<string | null>(null);
   const [rawDetectedText, setRawDetectedText] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
   const [showDebugOcr, setShowDebugOcr] = useState(false);
@@ -279,7 +302,11 @@ export function CookHome() {
       mvk.hide({ animate: false });
     }
     try {
-      const id = await submitProblem(input);
+      let finalInput = input;
+      if (typeof input === "string" && subLabel.trim() && !input.includes(subLabel.trim())) {
+        finalInput = `${subLabel.trim()} ${input}`;
+      }
+      const id = await submitProblem(finalInput);
       setCooking({ id, worksheet: false });
     } catch (err: any) {
       toast.error(err.message || "Failed to solve problem");
@@ -298,11 +325,26 @@ export function CookHome() {
       if (result.instruction) {
         setInstruction(result.instruction);
       }
+      if (result.condition) {
+        setDetectedCondition(result.condition);
+      }
+      if (result.intent) {
+        setDetectedIntent(result.intent);
+      }
       setOcrStatus(result.status);
       setOcrConfidence(result.confidence || null);
       setDetectedPrefix(result.detectedPrefix || null);
       setRawDetectedText(result.detectedText || null);
       setValidationIssues(result.validationIssues || []);
+
+      // Only extract instruction if detected from OCR vision; if not present, just blank it
+      const ocrInstruction = result.instruction?.trim() || "";
+      if (ocrInstruction) {
+        const fullLabel = [result.detectedPrefix, ocrInstruction].filter(Boolean).join(" ");
+        setSubLabel(fullLabel);
+      } else {
+        setSubLabel("");
+      }
 
       const rawMath = result.expression || result.detectedText || "";
       const mathExpr = cleanMinimalMath(rawMath);
@@ -336,6 +378,9 @@ export function CookHome() {
     setImagePreview(null);
     setFileName(null);
     setInstruction(null);
+    setDetectedCondition(null);
+    setDetectedIntent(null);
+    setSubLabel("");
     setOcrStatus(null);
     setOcrConfidence(null);
     setDetectedPrefix(null);
@@ -387,10 +432,14 @@ export function CookHome() {
           ))}
         </div>
         <h1 className="mx-auto mt-5 max-w-3xl text-5xl font-black leading-[1.02] md:text-7xl">
-          What are we <span className="text-primary">cooking</span> today?
+          {isKhmer ? (
+            <>តើអ្នកចង់ <span className="text-primary">ដោះស្រាយ</span> លំហាត់អ្វីថ្ងៃនេះ?</>
+          ) : (
+            <>What are we <span className="text-primary">cooking</span> today?</>
+          )}
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
-          Give me a math problem and I'll break it down step by step with LaTeX-OCR.
+          {t("solveSub")}
         </p>
       </Reveal>
 
@@ -420,6 +469,7 @@ export function CookHome() {
               key={item.label}
               onClick={() => {
                 setMathValue(item.query);
+                setSubLabel("");
                 mathFieldRef.current?.setValue(item.query);
                 mathFieldRef.current?.focus();
               }}
@@ -535,6 +585,10 @@ export function CookHome() {
               setOcrStatus("NEEDS_REVIEW");
             }
           }}
+          subLabel={subLabel}
+          onSubLabelChange={setSubLabel}
+          onSubLabelClear={() => setSubLabel("")}
+          condition={detectedCondition}
           onSubmit={(confirmed) => start(confirmed)}
           mathFieldRef={mathFieldRef}
         />

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # (e.g. "postgresql+asyncpg://...") without touching any other file.
     database_url: str = "sqlite+aiosqlite:///./khmer_math_lab.db"
 
-    # Math Vision / OCR provider: "stub", "tesseract", "kiri" (khmer_ocr), "mathpix", "google", or "gemini"
+    # Math Vision / OCR provider: "stub", "unimernet", "pix2tex", "tesseract", "kiri" (khmer_ocr), "mathpix", "google", or "gemini"
     vision_provider: str = "stub"
 
     # Gemini API credentials (if using gemini vision provider)

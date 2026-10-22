@@ -178,10 +178,21 @@ class DerivativeSolver(BaseSolver):
             except Exception:
                 is_verified = False
 
+        concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ដេរីវេគឺ {deriv_name} = {ans_str}។"
+        concl_en = f"Conclusion: Therefore, the derivative is {deriv_name} = {ans_str}."
+
         return SolveResult(
             answer=ans_str,
             variable=str(var),
             steps=steps,
             is_verified=is_verified,
             lesson_info=lesson_info,
+            teacher_header="ដំណោះស្រាយ និងការពន្យល់លម្អិត",
+            conclusion_km=concl_km,
+            conclusion_en=concl_en,
+            metadata={
+                "method_id": method_id,
+                "function_name": func_name,
+                "derivative_name": deriv_name,
+            },
         )

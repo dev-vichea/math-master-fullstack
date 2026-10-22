@@ -18,7 +18,7 @@ async def solve_math(
     and returns deterministic verified step-by-step solution.
     """
     try:
-        data = math_service.process_question(payload.question)
+        data = math_service.process_question(payload.question, language=payload.language)
     except MathProcessingError as exc:
         return APIResponse(success=False, data=None, error=str(exc))
 

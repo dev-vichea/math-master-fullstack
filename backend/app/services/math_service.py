@@ -18,6 +18,7 @@ from app.classifier.problem_classifier.intent_classifier import (
 )
 from app.core.cache import get_solve_cache
 from app.core.logging import get_logger
+from app.i18n.language import detect_language, normalize_language, set_current_language, use_language
 from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
 from app.ocr.quality import CandidateStatus, safe_normalize_math, validate_math_candidate
 from app.parser.exercise_parser.exercise_parser import _is_valid_math_expression
@@ -70,11 +71,14 @@ class MathService:
             "problem_type": problem_type,
         }
 
-    def process_question(self, question: str) -> SolveData:
+    def process_question(self, question: str, language: str = "km") -> SolveData:
         """
         Runs the full end-to-end math pipeline to solve and produce step-by-step output.
         Protects solver via: OCR -> normalize -> validate -> classify -> solve -> verify -> explain.
         """
+        active_lang = normalize_language(language)
+        set_current_language(active_lang)
+
         # 1. Deterministic safe normalization and prefix detachment
         norm_math, norm_warnings, prefix, suffix = safe_normalize_math(question)
         target_text = norm_math if norm_math and prefix else question
@@ -165,6 +169,10 @@ class MathService:
             result = solve(parsed, problem_type)
             cache.put(cache_key_expr, result, problem_type)
 
+        ans_str = str(result.answer) if result.answer is not None else ""
+        default_concl_km = f"សន្និដ្ឋាន៖ ដូចនេះ ចម្លើយគឺ {ans_str}។" if ans_str else None
+        default_concl_en = f"Conclusion: Therefore, the answer is {ans_str}." if ans_str else None
+
         solve_data = SolveData(
             problem_type=problem_type,
             original_question=question,
@@ -173,6 +181,9 @@ class MathService:
             variable=result.variable,
             answer=result.answer,
             is_verified=result.is_verified,
+            teacher_header=getattr(result, "teacher_header", "ដំណោះស្រាយ និងការពន្យល់លម្អិត"),
+            conclusion_km=getattr(result, "conclusion_km", None) or default_concl_km,
+            conclusion_en=getattr(result, "conclusion_en", None) or default_concl_en,
             steps=result.steps,
             lesson_info=result.lesson_info or result.metadata.get("lesson_info"),
         )
@@ -186,5 +197,5 @@ def get_math_service() -> MathService:
 
 
 # Backward compatibility standalone function
-def process_question(question: str) -> SolveData:
-    return get_math_service().process_question(question)
+def process_question(question: str, language: str = "km") -> SolveData:
+    return get_math_service().process_question(question, language=language)

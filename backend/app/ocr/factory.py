@@ -158,6 +158,17 @@ def create_vision_engine(provider: str | None = None) -> BaseVisionEngine:
                 "See app/core/vision/pix2tex_engine.py for details."
             ) from e
 
+    elif provider in ("unimernet", "unimer"):
+        try:
+            from app.ocr.engines.unimernet_engine import UniMERNetVisionEngine
+
+            return UniMERNetVisionEngine()
+        except ImportError as e:
+            raise ImportError(
+                "UniMERNet provider requires torch, transformers, and unimernet dependencies.\n"
+                "See app/ocr/engines/unimernet_engine.py for details."
+            ) from e
+
     elif provider in ("trocr", "khmer_math", "math_trocr"):
         try:
             from app.ocr.engines.trocr import TrOCRVisionEngine
@@ -172,9 +183,10 @@ def create_vision_engine(provider: str | None = None) -> BaseVisionEngine:
     else:
         raise ValueError(
             f"Unknown vision provider: {provider}\n"
-            f"Available providers: stub, tesseract, kiri (khmer_ocr), pix2tex (latex_ocr), "
+            f"Available providers: stub, tesseract, kiri (khmer_ocr), pix2tex (latex_ocr), unimernet, "
             f"trocr (khmer_math), mathpix, google, gemini, smart (intelligent router), or ensemble:strategy:providers"
         )
+
 
 
 def list_available_providers() -> dict[str, bool]:
@@ -238,5 +250,13 @@ def list_available_providers() -> dict[str, bool]:
     except ImportError:
         providers["pix2tex"] = False
         providers["latex_ocr"] = False
+
+    # Check UniMERNet
+    try:
+        from app.ocr.engines.unimernet_engine import UNIMERNET_AVAILABLE
+
+        providers["unimernet"] = UNIMERNET_AVAILABLE
+    except Exception:
+        providers["unimernet"] = False
 
     return providers

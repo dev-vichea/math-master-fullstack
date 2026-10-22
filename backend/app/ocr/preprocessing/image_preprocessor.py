@@ -353,7 +353,14 @@ def preprocess_image(
         if mode == "binary":
             # Otsu's automatic thresholding
             _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            result_img = binary
+            # Clear background noise: remove isolated paper fiber speckles (< 25px)
+            inv = cv2.bitwise_not(binary)
+            n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(inv)
+            clean_inv = np.zeros_like(inv)
+            for i in range(1, n_labels):
+                if stats[i, cv2.CC_STAT_AREA] >= 25:
+                    clean_inv[labels == i] = 255
+            result_img = cv2.bitwise_not(clean_inv)
         else:
             result_img = enhanced
 

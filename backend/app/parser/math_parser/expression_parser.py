@@ -59,21 +59,27 @@ def _clean_latex_text(text: str) -> str:
     t = re.sub(r"[។៕]", " ", t)
     t = re.sub(r"\\underline\{\s*\{*\s*=\s*\}*\s*\}", "=", t)
     t = re.sub(r"([+\-=])\{\s*(\\frac\{[^{}]*\}\{[^{}]*\})\s*\}", r"\1\2", t)
-    # Strip leading label prefix like \mathcal{Q}. or 2. or a. or (a) before a formula
+    # Strip leading label prefix like \mathcal{Q}. or \widehat{\sf n}. or 2. or a. or (a) before a formula
     t = re.sub(
         r"^\s*(?:"
-        r"\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)[\.៖:]?"
-        r"|(?:[\\/](?:tilde|bar|hat|mathcal|mathbf|mathrm|text)\{[^{}]*(?:\{[^{}]*\})*\}|[ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2})[\)\.៖:](?!\d)"
+        r"\([a-zA-Z0-9\u1780-\u17a2]{1,2}\)\s*[\.៖:]?"
+        r"|(?:[\\/](?:tilde|bar|hat|widehat|mathcal|mathbf|mathrm|text|sf|mathfrak)\s*\{[^{}]*(?:\{[^{}]*\})*\s*\}|[ក-អ]|[a-zA-Z]|[0-9]{1,2}|[\u17e0-\u17e9]{1,2})\s*[\)\.៖:](?!\d)"
         r")\s*",
         "",
         t,
     )
-    # Strip trailing punctuation, LaTeX space tokens like \; \, \! \quad and backslashes
-    t = re.sub(r"(\\[;,!]|\\quad|\\qquad|[\s;.,\\])+$", "", t)
+    # Strip trailing punctuation, LaTeX space tokens like \; \, \! \quad, \mathfrak{q}, \forall, etc.
+    t = re.sub(
+        r"(\\[;,!]|\\quad|\\qquad|\\(?:mathfrak|mathcal|mathbf|mathrm|text)\s*\{[^{}]*\}|\\forall|\\exists|[\s;.,\\])+$",
+        "",
+        t,
+    )
     while t.endswith("\\"):
         t = t[:-1].strip()
-    # Normalize \operatorname*{lim} or \operatorname{lim}
+    # Normalize \operatorname*{lim} or \operatorname*{l i m} or \operatorname{lim}
+    t = re.sub(r"\\operatorname\*?\s*\{\s*l\s*i\s*m\s*\}", r"\\lim", t)
     t = t.replace(r"\operatorname*{lim}", r"\lim").replace(r"\operatorname{lim}", r"\lim")
+    t = re.sub(r"^(?:[≈~]|\\approx\b)\s*", "", t)
     # Clean spaces inside trig functions from OCR (e.g. 's i n' or 'c o s' or 't a n')
     t = t.replace("s i n", r"\sin").replace("c o s", r"\cos").replace("t a n", r"\tan")
     t = (
@@ -83,19 +89,23 @@ def _clean_latex_text(text: str) -> str:
         .replace(r"\\lim", r"\lim")
     )
 
+    # Normalize TeX limit modifiers and arrows
+    t = re.sub(r"\\limits\b", "", t)
+    t = re.sub(r"(?:\\\\rightarrow|\\rightarrow)", r"\\to", t)
+
     # Convert sqrt(...) to \sqrt{...}
     t = re.sub(r"(?:\\)?sqrt\(([^)]+)\)", r"\\sqrt{\1}", t)
 
-    # Normalize +\infty to \infty in limit targets
+    # Normalize +\infty and \pm\infty to \infty in limit targets
     t = re.sub(
-        r"(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\\to|\bto\b)\s*\+\s*(?:\\)?infty",
+        r"(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\\to|\bto\b)\s*(?:\+|\\pm)?\s*(?:\\)?infty",
         r"\\to \\infty",
         t,
     )
-    # Normalize one-sided targets like 0^+ or 0^- or 0^{+}
+    # Normalize one-sided targets like 0^+ or 0^- or 0^{+} or 0^{-}
     t = re.sub(
-        r"(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\\to|\bto\b)\s*([0-9a-zA-Z]+)\^\{?[+\-]\}?",
-        r"\\to \1",
+        r"(?:->|\\\\rightarrow|\\rightarrow|\\\\to|\\to|\bto\b)\s*([0-9a-zA-Z]+)(?:\^\{[+\-]\}|\^[+\-])",
+        lambda m: rf"\to {m.group(1)}",
         t,
     )
     # Normalize limits with curly braces (e.g. \lim_{x\to\frac{\pi}{3}} or lim_{x -> 0})

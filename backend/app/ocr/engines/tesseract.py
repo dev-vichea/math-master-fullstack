@@ -88,6 +88,7 @@ class TesseractVisionEngine(MathVisionEngine):
                 error_message="Image data is empty",
             )
 
+        try:
             from app.parser.exercise_parser.exercise_parser import parse_exercise
             from app.ocr.normalization.ocr_postprocessor import sanitize_ocr_math_text
             from app.ocr.preprocessing.image_preprocessor import preprocess_image

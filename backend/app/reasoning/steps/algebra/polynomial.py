@@ -60,9 +60,12 @@ class PolynomialStepGenerator(StepGenerator):
         steps.append(
             SolutionStep(
                 order=order,
+                title_km="សមីការដើម",
+                title_en="Original Equation",
                 description_km="សមីការដើម៖",
                 description_en="Original equation:",
                 expression=f"{sympy.latex(lhs)} = {sympy.latex(rhs)}",
+                teacher_note="កត់ត្រាសមីការដើមឱ្យបានច្បាស់លាស់មុននឹងចាប់ផ្តើមដោះស្រាយ",
             )
         )
         order += 1
@@ -73,9 +76,12 @@ class PolynomialStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="បម្លែងទៅជាទម្រង់ស្តង់ដារ",
+                    title_en="Standard Form",
                     description_km="ផ្លាស់ទីទាំងអស់មកខាងឆ្វេងដើម្បីទទួលបានទម្រង់ស្តង់ដារ៖",
                     description_en="Move all terms to the left to get standard form:",
                     expression=f"{sympy.latex(standard_lhs)} = 0",
+                    teacher_note="ផ្ទេរគ្រប់តួទាំងអស់មកអង្គខាងឆ្វេងដើម្បីឱ្យស្មើ 0 ស្រួលវិភាគដឺក្រេ និងដាក់ជាផលគុណកត្តា",
                 )
             )
             order += 1
@@ -91,9 +97,12 @@ class PolynomialStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="កំណត់ដឺក្រេនៃពហុធា",
+                    title_en="Identify Polynomial Degree",
                     description_km=f"នេះគឺជាសមីការពហុធាដឺក្រេ {degree}។",
                     description_en=f"This is a polynomial equation of degree {degree}.",
                     expression=None,
+                    teacher_note=f"សមីការដឺក្រេ {degree} មានឫសអតិបរមាចំនួន {degree} (រាប់ទាំងឫសពិត និងឫសកុំផ្លិច)",
                 )
             )
             order += 1
@@ -104,9 +113,12 @@ class PolynomialStepGenerator(StepGenerator):
             steps.append(
                 SolutionStep(
                     order=order,
+                    title_km="ដាក់ជាផលគុណកត្តា",
+                    title_en="Factor Polynomial",
                     description_km="កត្តា (factor) ពហុធា៖",
                     description_en="Factor the polynomial:",
                     expression=f"{sympy.latex(factored)} = 0",
+                    teacher_note="ការដាក់ជាផលគុណកត្តាជួយឱ្យយើងរកឫសបានយ៉ាងរហ័ស ដោយឱ្យកត្តានីមួយៗស្មើ 0",
                 )
             )
             order += 1
@@ -173,9 +185,12 @@ class PolynomialStepGenerator(StepGenerator):
                 steps.append(
                     SolutionStep(
                         order=order,
+                        title_km="ដំណោះស្រាយជាលេខពិត",
+                        title_en="Real Solution",
                         description_km=f"ដំណោះស្រាយជាលេខពិត៖ {symbol} = {sol_str}",
                         description_en=f"Real solution: {symbol} = {sol_str}",
                         expression=f"{symbol} = {sol_str}",
+                        teacher_note="សមីការមានឫសពិតតែមួយគត់",
                     )
                 )
                 order += 1
@@ -184,9 +199,12 @@ class PolynomialStepGenerator(StepGenerator):
                 steps.append(
                     SolutionStep(
                         order=order,
+                        title_km="ដំណោះស្រាយជាលេខពិត",
+                        title_en="Real Solutions",
                         description_km=f"ដំណោះស្រាយជាលេខពិត ({len(real_solutions)})៖",
                         description_en=f"Real solutions ({len(real_solutions)}):",
                         expression=f"{symbol} = {solutions_str}",
+                        teacher_note=f"យើងទទួលបានឫសពិតចំនួន {len(real_solutions)}",
                     )
                 )
                 order += 1
@@ -198,9 +216,12 @@ class PolynomialStepGenerator(StepGenerator):
                 steps.append(
                     SolutionStep(
                         order=order,
+                        title_km="ដំណោះស្រាយជាចំនួនកុំផ្លិច",
+                        title_en="Complex Solution",
                         description_km=f"ដំណោះស្រាយស្មុគស្មាញ៖ {symbol} = {sol_str}",
                         description_en=f"Complex solution: {symbol} = {sol_str}",
                         expression=f"{symbol} = {sol_str}",
+                        teacher_note="ឫសនេះជាចំនួនកុំផ្លិច (មានផ្នែកនិម្មិត i)",
                     )
                 )
                 order += 1
@@ -209,9 +230,12 @@ class PolynomialStepGenerator(StepGenerator):
                 steps.append(
                     SolutionStep(
                         order=order,
+                        title_km="ដំណោះស្រាយជាចំនួនកុំផ្លិច",
+                        title_en="Complex Solutions",
                         description_km=f"ដំណោះស្រាយស្មុគស្មាញ ({len(complex_solutions)})៖",
                         description_en=f"Complex solutions ({len(complex_solutions)}):",
                         expression=f"{symbol} = {complex_solutions_str}",
+                        teacher_note=f"យើងទទួលបានឫសកុំផ្លិចចំនួន {len(complex_solutions)}",
                     )
                 )
 

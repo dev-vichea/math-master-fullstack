@@ -54,14 +54,14 @@ _PREFIX_PATTERN = re.compile(
     r"|(?:\(\s*(?:[a-zA-Z]|\d{1,3}|[\u1780-\u17a2]|[\u17e0-\u17e9]{1,3})\s*\)\s*[\.\,:]?)"  # (a) or (1) or (ឃ)
     r"|(?:[a-zA-Z\u1780-\u17a2]{1,2}\s*[\.\,:]\s*)"                      # a. or ឃ.
     r"|(?:[\u17e0-\u17e9]{1,4}\s*[\.\,:]\s*)"                            # ២៥.
-    r"|(?:\\[a-zA-Z]+\{[a-zA-Z0-9\u1780-\u17a2]+\}\s*[\.\,:]\s*)"        # \mathbf{2}.
+    r"|(?:\\[a-zA-Z]+\s*\{[^{}]*(?:\{[^{}]*\})*\s*\}\s*[\.\,:]\s*)"      # \mathbf{2}. or \widehat { \sf n } .
     r")\s*",
     re.IGNORECASE,
 )
 
-# Pattern for trailing non-math noise (e.g. '~v', 'ฯ', trailing punctuation)
+# Pattern for trailing non-math noise (e.g. '~v', 'ฯ', '\mathfrak { q }', trailing punctuation)
 _SUFFIX_PATTERN = re.compile(
-    r"(?:[\s,;:.|ฯ\\]+|~\s*[a-zA-Z]?|\\[a-zA-Z]+)+$"
+    r"(?:[\s,;:.|ฯ\\]+|~\s*[a-zA-Z]?|\\(?:mathfrak|mathrm|mathbf|mathit|mathsf|mathtt|textbf|textit|text|sf|rm|bf|it)\s*(?:\{[^{}]*\})?)+$"
 )
 
 
@@ -105,6 +105,17 @@ def safe_normalize_math(raw_text: str) -> tuple[str, list[str], str | None, str 
         text = text[:m_suffix.start()].strip()
         warnings.append(f"Trimmed trailing noise '{detected_suffix}'")
 
+    # Clean any unmatched leading/trailing braces left over from OCR prefix/suffix detachment
+    while text.startswith("}") and text.count("}") > text.count("{"):
+        text = text[1:].strip()
+    while text.endswith("}") and text.count("}") > text.count("{"):
+        text = text[:-1].strip()
+    while text.startswith("{") and text.count("{") > text.count("}"):
+        text = text[1:].strip()
+    while text.endswith("{") and text.count("{") > text.count("}"):
+        text = text[:-1].strip()
+
+
     # 4. Standardize Unicode mathematical operators
     for uni_char, replacement in _UNICODE_OPERATORS.items():
         if uni_char in text:
@@ -120,6 +131,11 @@ def safe_normalize_math(raw_text: str) -> tuple[str, list[str], str | None, str 
     # 6. Normalize common LaTeX function constructs
     text = text.replace(r"\operatorname*{lim}", r"\lim").replace(r"\operatorname{lim}", r"\lim")
     text = text.replace(r"\to\infty", r"\to \infty")
+
+    # Normalize OCR caret-as-wedge artifacts: e.g. x ^ { \wedge } 2 -> x^2, x^{\wedge} 2 -> x^2
+    text = re.sub(r"\^\s*\{\s*\\wedge\s*\}\s*", "^", text)
+    text = re.sub(r"\{\s*\\wedge\s*\}", "", text)
+    text = re.sub(r"(?<=[a-zA-Z0-9])\s*\\wedge\s*(?=[a-zA-Z0-9])", "^", text)
 
     # Ensure backslash for known math functions when missing
     for func in _MATH_FUNCS:

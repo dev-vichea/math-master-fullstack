@@ -115,25 +115,49 @@ async def vision_ocr(
         pipeline = MathOcrQualityPipeline(formula_engine=vision_engine)
         pipeline_res = pipeline.process_image(image_bytes)
         candidate = pipeline_res.selected_candidate
+        cand_meta = candidate.exercise_metadata or {}
 
         parsed_ex = parse_exercise(candidate.normalized_math_text or candidate.raw_ocr_text)
-        instruction = parsed_ex.instruction
-        exercise_title = parsed_ex.exercise_title
+        instruction = parsed_ex.instruction or cand_meta.get("instruction")
+        exercise_title = parsed_ex.exercise_title or cand_meta.get("exercise_title")
+
+        # Extract condition from parsed_ex or cand_meta
+        meta_cond = cand_meta.get("condition") or {}
+        condition = (
+            parsed_ex.condition
+            or (meta_cond.get("normalized_condition") if isinstance(meta_cond, dict) else str(meta_cond))
+        )
+        condition_type = (
+            parsed_ex.condition_type
+            or (meta_cond.get("condition_type") if isinstance(meta_cond, dict) else None)
+        )
+
+        clean_math_expr = (
+            cand_meta.get("primary_expression")
+            or parsed_ex.primary_expression
+            or candidate.normalized_math_text
+        )
+
         sub_exercises = [
             {
                 "label": s.label,
                 "raw_text": s.raw_text,
                 "expression": s.expression,
                 "intent": s.intent,
+                "condition": s.condition or condition,
+                "condition_type": s.condition_type or condition_type,
             }
             for s in parsed_ex.sub_exercises
-        ]
+        ] if parsed_ex.sub_exercises else cand_meta.get("sub_exercises", [])
 
         return APIResponse(
             success=True,
             data={
                 "detected_text": candidate.raw_ocr_text,
-                "expression": candidate.normalized_math_text,
+                "expression": clean_math_expr,
+                "condition": condition,
+                "condition_type": condition_type,
+                "intent": parsed_ex.detected_intent,
                 "status": candidate.status.value,
                 "confidence": candidate.confidence,
                 "score": candidate.score,

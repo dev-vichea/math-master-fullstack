@@ -173,12 +173,34 @@ class StepBuilder:
         operands: list[str] | None = None,
         transformation: TransformationType | None = None,
         equation_side: str | None = None,
+        title_km: str | None = None,
+        title_en: str | None = None,
+        teacher_note: str | None = None,
+        important_note: str | None = None,
+        details: list[str] | None = None,
+        calc_steps: list[dict[str, Any]] | None = None,
+        rule_formula: str | None = None,
+        rationale_km: str | None = None,
+        rationale_en: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a solution step with full metadata.
 
         Returns a dictionary matching SolutionStep schema.
         """
+        # Automatically construct calc_steps if not explicitly given
+        formatted_calc_steps = list(calc_steps or [])
+        if not formatted_calc_steps and expression:
+            lines = [l.strip() for l in expression.split("\n") if l.strip()]
+            if len(lines) > 1 and details and len(details) == len(lines) - 1:
+                formatted_calc_steps = [{"text": None, "math": lines[0]}]
+                for idx, line in enumerate(lines[1:]):
+                    formatted_calc_steps.append({"text": details[idx], "math": line})
+            elif len(lines) > 1:
+                formatted_calc_steps = [{"text": None, "math": line} for line in lines]
+            elif len(lines) == 1:
+                formatted_calc_steps = [{"text": None, "math": lines[0]}]
+
         step = {
             "order": self.step_number,
             "description_km": description_km,
@@ -188,6 +210,15 @@ class StepBuilder:
             "operands": operands or [],
             "transformation": transformation.value if transformation else None,
             "equation_side": equation_side,
+            "title_km": title_km,
+            "title_en": title_en,
+            "teacher_note": teacher_note,
+            "important_note": important_note,
+            "details": details or [],
+            "calc_steps": formatted_calc_steps,
+            "rule_formula": rule_formula,
+            "rationale_km": rationale_km,
+            "rationale_en": rationale_en,
         }
 
         self.step_number += 1
@@ -198,6 +229,11 @@ class StepBuilder:
         expression: str,
         description_km: str = "សមីការដើម៖",
         description_en: str = "Original equation:",
+        title_km: str = "សមីការដើម",
+        title_en: str = "Original Equation",
+        teacher_note: str | None = None,
+        important_note: str | None = None,
+        details: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create initial state step."""
         return self.create_step(
@@ -205,6 +241,11 @@ class StepBuilder:
             description_en=description_en,
             expression=expression,
             operation=OperationType.INITIAL_STATE,
+            title_km=title_km,
+            title_en=title_en,
+            teacher_note=teacher_note,
+            important_note=important_note,
+            details=details,
         )
 
     def create_arithmetic_step(
@@ -215,6 +256,12 @@ class StepBuilder:
         description_km: str,
         description_en: str,
         side: str = "both",
+        title_km: str | None = None,
+        title_en: str | None = None,
+        teacher_note: str | None = None,
+        important_note: str | None = None,
+        details: list[str] | None = None,
+        rule_formula: str | None = None,
     ) -> dict[str, Any]:
         """Create arithmetic operation step."""
         return self.create_step(
@@ -224,6 +271,12 @@ class StepBuilder:
             operation=operation,
             operands=[value],
             equation_side=side,
+            title_km=title_km,
+            title_en=title_en,
+            teacher_note=teacher_note,
+            important_note=important_note,
+            details=details,
+            rule_formula=rule_formula,
         )
 
     def create_final_step(
@@ -231,6 +284,11 @@ class StepBuilder:
         expression: str,
         description_km: str,
         description_en: str,
+        title_km: str = "ចម្លើយចុងក្រោយ",
+        title_en: str = "Final Answer",
+        teacher_note: str | None = None,
+        important_note: str | None = None,
+        details: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create final answer step."""
         return self.create_step(
@@ -238,6 +296,11 @@ class StepBuilder:
             description_en=description_en,
             expression=expression,
             operation=OperationType.FINAL_ANSWER,
+            title_km=title_km,
+            title_en=title_en,
+            teacher_note=teacher_note,
+            important_note=important_note,
+            details=details,
         )
 
     def create_step_from_template(
